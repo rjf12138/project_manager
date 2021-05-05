@@ -5,7 +5,11 @@
 		"gmock_main",
 		"gtest",
 		"gtest_main",
-		"pthread"
+		"pthread",
+		"buffer",
+		"data_structure",
+		"system_util",
+		"json"
 	],
 	"release版编译选项":"#-O2 -Wall -std=c++11",
 	"release静态库列表":[
@@ -18,14 +22,14 @@
 		"./inc/"
 	],
 	"当前生成文件类型":"exe",
-	"当前程序入口文件":"",
+	"当前程序入口文件":"main.cc",
 	"当前编译器":"g++",
 	"源文件目录列表":[
 		"./src/",
 		"./main/"
 	],
 	"程序入口文件列表":[
-		
+		"main.cc"
 	],
 	"程序参数":"#",
 	"编译方式":"debug",
