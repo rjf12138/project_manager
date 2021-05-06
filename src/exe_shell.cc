@@ -13,7 +13,6 @@ int exe_shell_cmd(string &ret, const char *format, ...)
 	vsnprintf(tmp, 256, format, aptr);
 	va_end(aptr);
 	
-	
 	ret = "";
 	FILE* fpipe = popen(tmp, "r");
 	if (!fpipe) {

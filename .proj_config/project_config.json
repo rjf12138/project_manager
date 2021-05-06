@@ -6,10 +6,11 @@
 		"gtest",
 		"gtest_main",
 		"pthread",
-		"buffer",
 		"data_structure",
 		"system_util",
-		"json"
+		"protocol",
+		"message",
+		"buffer"
 	],
 	"release版编译选项":"#-O2 -Wall -std=c++11",
 	"release静态库列表":[
@@ -31,7 +32,7 @@
 	"程序入口文件列表":[
 		"main.cc"
 	],
-	"程序参数":"#",
+	"程序参数":"#-cp",
 	"编译方式":"debug",
 	"静态库目录列表":[
 		"./lib/debug/",

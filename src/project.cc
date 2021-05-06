@@ -1,5 +1,6 @@
 #include "project.h"
 #include "exe_shell.h"
+#include "system_utils.h"
 #include "json/wejson.h"
 
 using namespace my_protocol;
@@ -44,13 +45,66 @@ Project::create_project_dir(void)
 
 int Project::generate_config(void)
 {
-    WeJson config;
+    string result;
+    ByteBuffer buffer;
+    WeJson config("{}"), arr("[]");
 
     config["project_name"] = name_;
-    config["project_path"] = path_ + name_;
+    config["project_path"] = path_ + "/" + name_;
 
-    string result;
-    exe_shell_cmd(result, "echo \"%s\" > project_config.json", config.generate());
+    exe_shell_cmd(result, "uuidgen | awk -F[\\n] '{print $1}'");
+    config["project_uuid"] = result;
+
+    arr.parse("[]");
+    arr.add("./lib/debug/");
+    arr.add("./lib/release/");
+    arr.add("./output/debug/lib/");
+    arr.add("./output/release/lib/");
+    config["library_dir"] = arr;
+    arr.clear();
+
+    arr.parse("[]");
+    arr.add("./src/");
+    arr.add("./main/");
+    config["src_dir"] = arr;
+    arr.clear();
+
+    arr.parse("[]");
+    arr.add("./inc/");
+    config["inc_dir"] = arr;
+    arr.clear();
+
+    arr.parse("[]");
+    arr.add("g++");
+    config["choose_compiler"] = arr;
+    arr.clear();
+
+    config["release_compile_option"] = "-O2 -Wall -std=c++11";
+    arr.parse("[]");
+    arr.add("gmock");
+    arr.add("gtest");
+    config["release_link_library"] = arr;
+    arr.clear();
+
+    config["debug_compile_option"] = "-O0 -Wall -g -ggdb -std=c++11";
+    arr.parse("[]");
+    arr.add("gmock_main");
+    arr.add("gtest_main");
+    config["debug_link_library"] = arr;
+    arr.clear();
+
+    config["compile_method"] = "debug";
+    config["program_run_arg"] = "";
+
+
+    config["compiler"] = "g++";
+    config["main_cpp_file"] = "";
+    config["generate_file_type"] = "exe";
+
+    buffer.write_string(config.format_json());
+    system_utils::Stream project_config;
+    project_config.open("./project_config.json");
+    project_config.write(buffer, buffer.data_size());
 
     return 0;
 }

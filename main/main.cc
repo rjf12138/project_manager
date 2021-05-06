@@ -40,8 +40,9 @@ int main(int argc, char **argv)
         {
             std::cout << "PMO_CreateProject" << std::endl;
 
-            Project proj("proj1", "./");
+            Project proj("proj1", ".");
             proj.create_project_dir();
+            proj.generate_config();
         } break;
         case PMO_BuildProjectWithDebug:
         {
