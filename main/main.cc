@@ -24,6 +24,7 @@ int param_argv(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
+    Project proj("proj1", ".");
     int ret = param_argv(argc, argv);
     switch (ret)
     {
@@ -39,10 +40,7 @@ int main(int argc, char **argv)
         case PMO_CreateProject:
         {
             std::cout << "PMO_CreateProject" << std::endl;
-
-            Project proj("proj1", ".");
             proj.create_project_dir();
-            proj.generate_config();
         } break;
         case PMO_BuildProjectWithDebug:
         {

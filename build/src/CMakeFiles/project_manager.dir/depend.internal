@@ -19,3 +19,5 @@ src/CMakeFiles/project_manager.dir/project.cc.o
  ../inc/project.h
  ../inc/system_utils.h
  /home/ruanjian/workspace/project_pre/project_manager/src/project.cc
+src/CMakeFiles/project_manager.dir/window.cc.o
+ /home/ruanjian/workspace/project_pre/project_manager/src/window.cc

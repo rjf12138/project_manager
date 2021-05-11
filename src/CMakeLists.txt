@@ -12,4 +12,5 @@ target_link_libraries(project_manager -lsystem_util)
 target_link_libraries(project_manager -lprotocol)
 target_link_libraries(project_manager -lmessage)
 target_link_libraries(project_manager -lbuffer)
+target_link_libraries(project_manager -lncurses)
 

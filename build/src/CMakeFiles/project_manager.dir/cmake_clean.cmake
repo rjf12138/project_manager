@@ -4,6 +4,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/project_manager.dir/exe_shell.cc.o"
   "CMakeFiles/project_manager.dir/generate_cmake.cc.o"
   "CMakeFiles/project_manager.dir/project.cc.o"
+  "CMakeFiles/project_manager.dir/window.cc.o"
 )
 
 # Per-language clean rules from dependency scanning.

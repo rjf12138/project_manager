@@ -3,14 +3,37 @@
 #include "system_utils.h"
 
 Project::Project(string name, string path)
-:name_(name), path_(path)
+:name_(name), project_located_path_(path)
 {
-    project_path_ = path_ + "/" + name_;
+    project_path_ = project_located_path_ + "/" + name_;
 }
 
 Project::~Project(void)
 {
 
+}
+
+int 
+Project::load_project(string project_path)
+{
+    project_path_ = project_path;
+
+    ByteBuffer config_buf;
+    system_utils::Stream project_config;
+
+    string config_path = project_path_ + "/.proj_config/project_config.json";
+    int ret = project_config.open(config_path);
+    if (ret == -1) {
+        LOG_GLOBAL_ERROR("Load project failed： Can not load project config.");
+        return -1;
+    }
+    project_config.read(config_buf, config_buf.data_size());
+    config_.parse(config_buf);
+
+    JsonString name = config_["project_name"];
+    name_ = name.value();
+    
+    return 0;
 }
 
 int 
@@ -37,8 +60,10 @@ Project::create_project_dir(void)
     exe_shell_cmd(result, "mkdir %s/.proj_config", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/.vscode", project_path_.c_str());
 
-    string project_config_path = project_path_ + "/project_config.json";
+    string project_config_path = project_path_ + "/.proj_config/project_config.json";
     this->generate_project_config(project_config_path);
+    // string project_vscode_path = project_path_ + "/.vscode";
+    // this->generate_vscode_config(project_vscode_path);
 
     return 0;
 }
@@ -50,7 +75,7 @@ int Project::generate_project_config(string path)
     WeJson arr("[]");
 
     config_["project_name"] = name_;
-    config_["project_path"] = path_ + "/" + name_;
+    config_["project_path"] = project_located_path_ + "/" + name_;
 
     exe_shell_cmd(result, "uuidgen | tr -d '\n'");
     config_["project_uuid"] = result;
@@ -109,7 +134,8 @@ int Project::generate_project_config(string path)
     return 0;
 }
 
-int Project::generate_vscode_config(string path)
+int 
+Project::generate_vscode_config(string path)
 {
     string result;
 
@@ -171,4 +197,6 @@ int Project::generate_vscode_config(string path)
     exe_shell_cmd(result, "echo \"        }\"                                                        >> %s/launch.json", path.c_str());
     exe_shell_cmd(result, "echo \"    ]\"                                                            >> %s/launch.json", path.c_str());
     exe_shell_cmd(result, "echo \"}\"                                                                >> %s/launch.json", path.c_str());
+
+    return 0;
 }

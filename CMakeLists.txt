@@ -9,6 +9,7 @@ link_directories(./lib/debug/)
 link_directories(./lib/release/)
 link_directories(./output/debug/lib/)
 link_directories(./output/release/lib/)
+link_directories(./output/debug/lib/ncurses)
 
 add_subdirectory(./src/)
 add_subdirectory(./main/)

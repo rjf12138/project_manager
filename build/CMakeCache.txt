@@ -213,7 +213,7 @@ CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 project_manager_BINARY_DIR:STATIC=/home/ruanjian/workspace/project_pre/project_manager/build/main
 
 //Dependencies for the target
-project_manager_LIB_DEPENDS:STATIC=general;-lpthread;general;-ldata_structure;general;-lsystem_util;general;-lprotocol;general;-lmessage;general;-lbuffer;
+project_manager_LIB_DEPENDS:STATIC=general;-lpthread;general;-ldata_structure;general;-lsystem_util;general;-lprotocol;general;-lmessage;general;-lbuffer;general;-lncurses;
 
 //Value Computed by CMake
 project_manager_SOURCE_DIR:STATIC=/home/ruanjian/workspace/project_pre/project_manager/main

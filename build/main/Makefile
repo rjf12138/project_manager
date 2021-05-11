@@ -111,46 +111,46 @@ depend:
 .PHONY : depend
 
 # Convenience name for target.
-main/CMakeFiles/main.dir/rule:
-	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f CMakeFiles/Makefile2 main/CMakeFiles/main.dir/rule
-.PHONY : main/CMakeFiles/main.dir/rule
+main/CMakeFiles/Test_ncurses.dir/rule:
+	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f CMakeFiles/Makefile2 main/CMakeFiles/Test_ncurses.dir/rule
+.PHONY : main/CMakeFiles/Test_ncurses.dir/rule
 
 # Convenience name for target.
-main: main/CMakeFiles/main.dir/rule
+Test_ncurses: main/CMakeFiles/Test_ncurses.dir/rule
 
-.PHONY : main
+.PHONY : Test_ncurses
 
 # fast build rule for target.
-main/fast:
-	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f main/CMakeFiles/main.dir/build.make main/CMakeFiles/main.dir/build
-.PHONY : main/fast
+Test_ncurses/fast:
+	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f main/CMakeFiles/Test_ncurses.dir/build.make main/CMakeFiles/Test_ncurses.dir/build
+.PHONY : Test_ncurses/fast
 
-main.o: main.cc.o
+Test_ncurses.o: Test_ncurses.cc.o
 
-.PHONY : main.o
+.PHONY : Test_ncurses.o
 
 # target to build an object file
-main.cc.o:
-	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f main/CMakeFiles/main.dir/build.make main/CMakeFiles/main.dir/main.cc.o
-.PHONY : main.cc.o
+Test_ncurses.cc.o:
+	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f main/CMakeFiles/Test_ncurses.dir/build.make main/CMakeFiles/Test_ncurses.dir/Test_ncurses.cc.o
+.PHONY : Test_ncurses.cc.o
 
-main.i: main.cc.i
+Test_ncurses.i: Test_ncurses.cc.i
 
-.PHONY : main.i
+.PHONY : Test_ncurses.i
 
 # target to preprocess a source file
-main.cc.i:
-	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f main/CMakeFiles/main.dir/build.make main/CMakeFiles/main.dir/main.cc.i
-.PHONY : main.cc.i
+Test_ncurses.cc.i:
+	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f main/CMakeFiles/Test_ncurses.dir/build.make main/CMakeFiles/Test_ncurses.dir/Test_ncurses.cc.i
+.PHONY : Test_ncurses.cc.i
 
-main.s: main.cc.s
+Test_ncurses.s: Test_ncurses.cc.s
 
-.PHONY : main.s
+.PHONY : Test_ncurses.s
 
 # target to generate assembly for a file
-main.cc.s:
-	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f main/CMakeFiles/main.dir/build.make main/CMakeFiles/main.dir/main.cc.s
-.PHONY : main.cc.s
+Test_ncurses.cc.s:
+	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f main/CMakeFiles/Test_ncurses.dir/build.make main/CMakeFiles/Test_ncurses.dir/Test_ncurses.cc.s
+.PHONY : Test_ncurses.cc.s
 
 # Help Target
 help:
@@ -160,10 +160,10 @@ help:
 	@echo "... depend"
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
-	@echo "... main"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
+	@echo "... Test_ncurses"
+	@echo "... Test_ncurses.o"
+	@echo "... Test_ncurses.i"
+	@echo "... Test_ncurses.s"
 .PHONY : help
 
 

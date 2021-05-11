@@ -121,5 +121,5 @@ set(CMAKE_MAKEFILE_PRODUCTS
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "src/CMakeFiles/project_manager.dir/DependInfo.cmake"
-  "main/CMakeFiles/main.dir/DependInfo.cmake"
+  "main/CMakeFiles/Test_ncurses.dir/DependInfo.cmake"
   )

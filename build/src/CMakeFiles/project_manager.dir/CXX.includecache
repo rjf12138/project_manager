@@ -89,6 +89,8 @@ basic_head.h
 ../inc/project.h
 basic_head.h
 ../inc/basic_head.h
+json/wejson.h
+../inc/json/wejson.h
 
 ../inc/system_utils.h
 basic_head.h
@@ -117,6 +119,6 @@ exe_shell.h
 /home/ruanjian/workspace/project_pre/project_manager/src/exe_shell.h
 system_utils.h
 /home/ruanjian/workspace/project_pre/project_manager/src/system_utils.h
-json/wejson.h
-/home/ruanjian/workspace/project_pre/project_manager/src/json/wejson.h
+
+/home/ruanjian/workspace/project_pre/project_manager/src/window.cc
 

@@ -206,6 +206,33 @@ project.cc.s:
 	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f src/CMakeFiles/project_manager.dir/build.make src/CMakeFiles/project_manager.dir/project.cc.s
 .PHONY : project.cc.s
 
+window.o: window.cc.o
+
+.PHONY : window.o
+
+# target to build an object file
+window.cc.o:
+	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f src/CMakeFiles/project_manager.dir/build.make src/CMakeFiles/project_manager.dir/window.cc.o
+.PHONY : window.cc.o
+
+window.i: window.cc.i
+
+.PHONY : window.i
+
+# target to preprocess a source file
+window.cc.i:
+	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f src/CMakeFiles/project_manager.dir/build.make src/CMakeFiles/project_manager.dir/window.cc.i
+.PHONY : window.cc.i
+
+window.s: window.cc.s
+
+.PHONY : window.s
+
+# target to generate assembly for a file
+window.cc.s:
+	cd /home/ruanjian/workspace/project_pre/project_manager/build && $(MAKE) -f src/CMakeFiles/project_manager.dir/build.make src/CMakeFiles/project_manager.dir/window.cc.s
+.PHONY : window.cc.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -224,6 +251,9 @@ help:
 	@echo "... project.o"
 	@echo "... project.i"
 	@echo "... project.s"
+	@echo "... window.o"
+	@echo "... window.i"
+	@echo "... window.s"
 .PHONY : help
 
 

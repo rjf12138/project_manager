@@ -124,17 +124,17 @@ project_manager/fast:
 .PHONY : project_manager/fast
 
 #=============================================================================
-# Target rules for targets named main
+# Target rules for targets named Test_ncurses
 
 # Build rule for target.
-main: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 main
-.PHONY : main
+Test_ncurses: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 Test_ncurses
+.PHONY : Test_ncurses
 
 # fast build rule for target.
-main/fast:
-	$(MAKE) -f main/CMakeFiles/main.dir/build.make main/CMakeFiles/main.dir/build
-.PHONY : main/fast
+Test_ncurses/fast:
+	$(MAKE) -f main/CMakeFiles/Test_ncurses.dir/build.make main/CMakeFiles/Test_ncurses.dir/build
+.PHONY : Test_ncurses/fast
 
 # Help Target
 help:
@@ -145,7 +145,7 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... project_manager"
-	@echo "... main"
+	@echo "... Test_ncurses"
 .PHONY : help
 
 

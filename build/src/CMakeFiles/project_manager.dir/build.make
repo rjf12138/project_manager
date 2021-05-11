@@ -96,11 +96,25 @@ src/CMakeFiles/project_manager.dir/project.cc.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/project_manager.dir/project.cc.s"
 	cd /home/ruanjian/workspace/project_pre/project_manager/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ruanjian/workspace/project_pre/project_manager/src/project.cc -o CMakeFiles/project_manager.dir/project.cc.s
 
+src/CMakeFiles/project_manager.dir/window.cc.o: src/CMakeFiles/project_manager.dir/flags.make
+src/CMakeFiles/project_manager.dir/window.cc.o: ../src/window.cc
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ruanjian/workspace/project_pre/project_manager/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object src/CMakeFiles/project_manager.dir/window.cc.o"
+	cd /home/ruanjian/workspace/project_pre/project_manager/build/src && /usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/project_manager.dir/window.cc.o -c /home/ruanjian/workspace/project_pre/project_manager/src/window.cc
+
+src/CMakeFiles/project_manager.dir/window.cc.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/project_manager.dir/window.cc.i"
+	cd /home/ruanjian/workspace/project_pre/project_manager/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ruanjian/workspace/project_pre/project_manager/src/window.cc > CMakeFiles/project_manager.dir/window.cc.i
+
+src/CMakeFiles/project_manager.dir/window.cc.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/project_manager.dir/window.cc.s"
+	cd /home/ruanjian/workspace/project_pre/project_manager/build/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ruanjian/workspace/project_pre/project_manager/src/window.cc -o CMakeFiles/project_manager.dir/window.cc.s
+
 # Object files for target project_manager
 project_manager_OBJECTS = \
 "CMakeFiles/project_manager.dir/exe_shell.cc.o" \
 "CMakeFiles/project_manager.dir/generate_cmake.cc.o" \
-"CMakeFiles/project_manager.dir/project.cc.o"
+"CMakeFiles/project_manager.dir/project.cc.o" \
+"CMakeFiles/project_manager.dir/window.cc.o"
 
 # External object files for target project_manager
 project_manager_EXTERNAL_OBJECTS =
@@ -108,9 +122,10 @@ project_manager_EXTERNAL_OBJECTS =
 ../output/debug/lib/libproject_manager.a: src/CMakeFiles/project_manager.dir/exe_shell.cc.o
 ../output/debug/lib/libproject_manager.a: src/CMakeFiles/project_manager.dir/generate_cmake.cc.o
 ../output/debug/lib/libproject_manager.a: src/CMakeFiles/project_manager.dir/project.cc.o
+../output/debug/lib/libproject_manager.a: src/CMakeFiles/project_manager.dir/window.cc.o
 ../output/debug/lib/libproject_manager.a: src/CMakeFiles/project_manager.dir/build.make
 ../output/debug/lib/libproject_manager.a: src/CMakeFiles/project_manager.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ruanjian/workspace/project_pre/project_manager/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX static library ../../output/debug/lib/libproject_manager.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ruanjian/workspace/project_pre/project_manager/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX static library ../../output/debug/lib/libproject_manager.a"
 	cd /home/ruanjian/workspace/project_pre/project_manager/build/src && $(CMAKE_COMMAND) -P CMakeFiles/project_manager.dir/cmake_clean_target.cmake
 	cd /home/ruanjian/workspace/project_pre/project_manager/build/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/project_manager.dir/link.txt --verbose=$(VERBOSE)
 

@@ -19,3 +19,5 @@ src/CMakeFiles/project_manager.dir/project.cc.o: ../inc/project.h
 src/CMakeFiles/project_manager.dir/project.cc.o: ../inc/system_utils.h
 src/CMakeFiles/project_manager.dir/project.cc.o: ../src/project.cc
 
+src/CMakeFiles/project_manager.dir/window.cc.o: ../src/window.cc
+

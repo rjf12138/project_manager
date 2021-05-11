@@ -7,6 +7,7 @@ set(CMAKE_DEPENDS_CHECK_CXX
   "/home/ruanjian/workspace/project_pre/project_manager/src/exe_shell.cc" "/home/ruanjian/workspace/project_pre/project_manager/build/src/CMakeFiles/project_manager.dir/exe_shell.cc.o"
   "/home/ruanjian/workspace/project_pre/project_manager/src/generate_cmake.cc" "/home/ruanjian/workspace/project_pre/project_manager/build/src/CMakeFiles/project_manager.dir/generate_cmake.cc.o"
   "/home/ruanjian/workspace/project_pre/project_manager/src/project.cc" "/home/ruanjian/workspace/project_pre/project_manager/build/src/CMakeFiles/project_manager.dir/project.cc.o"
+  "/home/ruanjian/workspace/project_pre/project_manager/src/window.cc" "/home/ruanjian/workspace/project_pre/project_manager/build/src/CMakeFiles/project_manager.dir/window.cc.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 

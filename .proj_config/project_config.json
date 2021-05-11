@@ -10,7 +10,8 @@
 		"system_util",
 		"protocol",
 		"message",
-		"buffer"
+		"buffer",
+		"ncurses"
 	],
 	"release版编译选项":"#-O2 -Wall -std=c++11",
 	"release静态库列表":[
@@ -23,14 +24,15 @@
 		"./inc/"
 	],
 	"当前生成文件类型":"exe",
-	"当前程序入口文件":"main.cc",
+	"当前程序入口文件":"Test_ncurses.cc",
 	"当前编译器":"g++",
 	"源文件目录列表":[
 		"./src/",
 		"./main/"
 	],
 	"程序入口文件列表":[
-		"main.cc"
+		"main.cc",
+		"Test_ncurses.cc"
 	],
 	"程序参数":"#-cp",
 	"编译方式":"debug",
@@ -38,7 +40,8 @@
 		"./lib/debug/",
 		"./lib/release/",
 		"./output/debug/lib/",
-		"./output/release/lib/"
+		"./output/release/lib/",
+		"./output/debug/lib/ncurses"
 	],
 	"项目UUID":"6317aaaa-48db-4ac0-933e-978c6819b2a0",
 	"项目名称":"project_manager",

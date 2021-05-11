@@ -13,11 +13,14 @@ public:
 
     int load_project(string project_path);
     int create_project_dir(void);
+
     int generate_project_config(string path);
     int generate_vscode_config(string path);
+
+    int print_proj_name(void);
 private:
     string name_;
-    string path_;
+    string project_located_path_;
     string project_path_;
     string output_bin_path_;
     string output_lib_path_;
