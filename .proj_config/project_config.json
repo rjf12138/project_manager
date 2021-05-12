@@ -11,7 +11,8 @@
 		"protocol",
 		"message",
 		"buffer",
-		"ncurses"
+		"ncurses",
+		"menu"
 	],
 	"release版编译选项":"#-O2 -Wall -std=c++11",
 	"release静态库列表":[

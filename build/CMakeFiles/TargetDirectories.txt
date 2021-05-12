@@ -1,8 +1,0 @@
-/home/ruanjian/workspace/project_pre/project_manager/build/CMakeFiles/rebuild_cache.dir
-/home/ruanjian/workspace/project_pre/project_manager/build/CMakeFiles/edit_cache.dir
-/home/ruanjian/workspace/project_pre/project_manager/build/src/CMakeFiles/rebuild_cache.dir
-/home/ruanjian/workspace/project_pre/project_manager/build/src/CMakeFiles/edit_cache.dir
-/home/ruanjian/workspace/project_pre/project_manager/build/src/CMakeFiles/project_manager.dir
-/home/ruanjian/workspace/project_pre/project_manager/build/main/CMakeFiles/rebuild_cache.dir
-/home/ruanjian/workspace/project_pre/project_manager/build/main/CMakeFiles/edit_cache.dir
-/home/ruanjian/workspace/project_pre/project_manager/build/main/CMakeFiles/Test_ncurses.dir
