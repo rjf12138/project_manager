@@ -3,15 +3,12 @@
 
 ProjectWindow::ProjectWindow(void)
 {
-    initscr();  // 以 curses 模式初始化终端
-    cbreak();   // 当缓存中有数据可读时直接返回而不是等到换行符或是缓冲满了才返回
-    noecho();   // 输入字符不回显
-    keypad(stdscr, TRUE); // 支持读取功能键像 F1, F2, arrow keys etc
+    
 }
 
 ProjectWindow::~ProjectWindow(void)
 {
-    endwin();
+    
 }
 
 string 
@@ -20,7 +17,7 @@ ProjectWindow::menu_manager(vector<string> print_array, int menu_display_num)
     std::size_t menu_page = print_array.size() / menu_display_num;
     menu_page = (print_array.size() % menu_display_num == 0 ? menu_page : menu_page + 1);
     
-
+    return "";
 }
 
 string 
@@ -38,23 +35,45 @@ ProjectWindow::display_menu(vector<string> print_array, std::size_t start, std::
         return "";
     }
 
-    std::size_t display_num = tail - start + 5;
-    std::size_t index = 1;
+    initscr();  // 以 curses 模式初始化终端
+    cbreak();   // 当缓存中有数据可读时直接返回而不是等到换行符或是缓冲满了才返回
+    noecho();   // 输入字符不回显
+    keypad(stdscr, TRUE); // 支持读取功能键像 F1, F2, arrow keys etc
+
+    std::size_t display_num = tail - start + 4;
     ITEM** items = new ITEM*[display_num];
-    items[index++] = new_item(to_string(index).c_str(), "输入打开项目的地址");
+    items[0] = new_item("1", "Input project path");
     for (std::size_t i = start; i <= tail; ++i) {
-        items[index++] = new_item(to_string(index).c_str(), print_array[i].c_str());
+        std::size_t index = i - start + 1;
+        cerr << index << endl;
+        items[index] = new_item(to_string(index).c_str(), print_array[i].c_str());
     }
-    items[index++] = new_item(to_string(index).c_str(), "上一页");
-    items[index] = new_item(to_string(index).c_str(), "下一页");
+    MENU *project_menu = new_menu(items);
 
-    MENU *project_menu = new_menu((ITEM **)items);
-    mvprintw(LINES - 1, 0, "按 q 退出");
+    WINDOW *menu_window = newwin(23, 79, 0, 0);
+    keypad(menu_window, TRUE);
+    
+    /* Set main window and sub window */
+    set_menu_win(project_menu, menu_window);
+    set_menu_sub(project_menu, derwin(menu_window, 20, 38, 3, 1));
+    set_menu_format(project_menu, 15, 1);
+
+    /* Set menu mark to the string " * " */
+    set_menu_mark(project_menu, " > ");
+
+    /* Print a border around the main window and print a title */
+    box(menu_window, 0, 0);
+    this->print_in_middle(menu_window, 1, 0, 79, "Project Path Menu", COLOR_PAIR(1));
+    mvwaddch(menu_window, 2, 0, ACS_LTEE);
+    mvwhline(menu_window, 2, 1, ACS_HLINE, 77);
+    mvwaddch(menu_window, 2, 78, ACS_RTEE);
+
+    mvprintw(LINES - 1, 0, "Press q to Exit");
     post_menu(project_menu);
-    refresh();
+    wrefresh(menu_window);
 
-    char ch;
-    while((ch = getch()) != KEY_F(1))
+    int ch;
+    while((ch = wgetch(menu_window)) != 'q')
     {   switch(ch)
         {   
             case KEY_DOWN: {
@@ -63,13 +82,47 @@ ProjectWindow::display_menu(vector<string> print_array, std::size_t start, std::
             case KEY_UP: {
                 menu_driver(project_menu, REQ_UP_ITEM);
             } break;
+            case KEY_NPAGE: {
+                menu_driver(project_menu, REQ_SCR_DPAGE);
+            } break;
+            case KEY_PPAGE: {
+                menu_driver(project_menu, REQ_SCR_UPAGE);
+            } break;
         }
+        wrefresh(menu_window);
     }       
 
     free_menu(project_menu);
-    for (std::size_t i = 0; i < index; ++i) {
+    for (std::size_t i = 0; i < display_num; ++i) {
         free_item(items[i]);
     }
+
+    endwin();
+    return "";
+}
+
+void 
+ProjectWindow::print_in_middle(WINDOW *win, int starty, int startx, int width, const char *string, chtype color)
+{       int length, x, y;
+        float temp;
+
+        if(win == NULL)
+                win = stdscr;
+        getyx(win, y, x);
+        if(startx != 0)
+                x = startx;
+        if(starty != 0)
+                y = starty;
+        if(width == 0)
+                width = 80;
+
+        length = strlen(string);
+        temp = (width - length)/ 2;
+        x = startx + (int)temp;
+        wattron(win, color);
+        mvwprintw(win, y, x, "%s", string);
+        wattroff(win, color);
+        refresh();
 }
 
 // string 

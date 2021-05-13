@@ -14,6 +14,7 @@ public:
 
     string menu_manager(vector<string> print_array, int menu_display_num = 12);
     string display_menu(vector<string> print_array, std::size_t start, std::size_t tail);
+    void print_in_middle(WINDOW *win, int starty, int startx, int width, const char *string, chtype color);
 private:
 };
 
