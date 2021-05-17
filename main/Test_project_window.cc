@@ -1,8 +1,6 @@
 #include "project_window.h"
 
-vector<string> chooses = {
-                        "Choice 1",
-                        "Choice 2",
+vector<string> proj_name = {
                         "Choice 3",
                         "Choice 4",
                         "Choice 5",
@@ -18,12 +16,30 @@ vector<string> chooses = {
                         "Choice 15",
                         "Choice 16",
                         "Choice 17",
-                        "Exit"
+                  };
+
+vector<string> proj_path = {
+                        "/home/ruanjian/project_manager/doc/Choice 3",
+                        "/home/ruanjian/Choice 4",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 5",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 6",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 7",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 8",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 9",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 10",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 11",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 12",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 13",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 14",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 15",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 16",
+                        "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 17",
                   };
 
 int main(void)
 {
     ProjectWindow pw;
-    pw.display_menu(chooses, 0, chooses.size() - 1);
+    string ret = pw.display_menu(proj_name, proj_path);
+    cout << "ret: " << ret << endl;
     return 0;
 }
