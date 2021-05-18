@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../output/debug/lib/libproject_manager.a  CMakeFiles/project_manager.dir/exe_shell.cc.o CMakeFiles/project_manager.dir/generate_cmake.cc.o CMakeFiles/project_manager.dir/project.cc.o CMakeFiles/project_manager.dir/project_window.cc.o
-/usr/bin/ranlib ../../output/debug/lib/libproject_manager.a
