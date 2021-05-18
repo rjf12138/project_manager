@@ -63,9 +63,23 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
     post_menu(project_menu);
     wrefresh(menu_window);
 
-    int ch;
-    while((ch = wgetch(menu_window)) != 'q')
-    {   switch(ch)
+    string curr_text;
+    while(true) // 回车键
+    {   
+        int ch = wgetch(menu_window);
+        if (ch == Keyboard_Enter) { // 回车键退出
+            if (project_menu->curitem->description.length == 0) {
+                curr_text = ProjWin_InputPath;
+            } else {
+                curr_text = proj_path[project_menu->curitem->index]; // 返回项目路径
+            }
+            break;
+        } else if (ch == Keyboard_Esc) {
+            curr_text = "";
+            break;
+        }
+
+        switch(ch)
         {   
             case KEY_DOWN: {
                 menu_driver(project_menu, REQ_DOWN_ITEM);
@@ -83,13 +97,6 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
         wrefresh(menu_window);
     }
 
-    string curr_text;
-    if (project_menu->curitem->description.length == 0) {
-        curr_text = ProjWin_InputPath;
-    } else {
-        curr_text = project_menu->curitem->description.str; // 返回项目路径
-    }
-
     free_menu(project_menu);
     for (std::size_t i = 0; i < display_num; ++i) {
         free_item(items[i]);
@@ -97,6 +104,63 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
     endwin();
 
     return curr_text;
+}
+
+string 
+ProjectWindow::get_input(string title)
+{
+    FIELD *field[3];
+    FORM  *my_form;
+    int ch;
+    
+    /* Initialize curses */
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+
+    /* Initialize the fields */
+    field[0] = new_field(1, 10, 4, 18, 0, 0);
+    field[1] = new_field(1, 10, 6, 18, 0, 0);
+    field[2] = NULL;
+
+    /* Set field options */
+    field_opts_off(field[0], O_ACTIVE); /* This field is a static label */
+
+
+    /* Create the form and post it */
+    my_form = new_form(field);
+    post_form(my_form);
+    refresh();
+    
+    set_field_just(field[0], JUSTIFY_CENTER); /* Center Justification */
+    set_field_buffer(field[0], 0, title.c_str()); 
+
+    mvprintw(4, 10, "Title: ");
+    mvprintw(6, 10, "Input: ");
+    refresh();
+
+    /* Loop through to get user requests */
+    while(true)
+    {
+        int ch = getch();
+        if (ch == Keyboard_Enter) { // 回车键退出
+            break;
+        } else if (ch == Keyboard_Esc) {
+            break;
+        }
+        // 打印输入字符
+        form_driver(my_form, ch);
+    }
+
+    /* Un post form and free the memory */
+    unpost_form(my_form);
+    free_form(my_form);
+    free_field(field[0]);
+    free_field(field[1]); 
+
+    endwin();
+    return "";
 }
 
 void 
