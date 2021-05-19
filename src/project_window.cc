@@ -120,8 +120,8 @@ ProjectWindow::get_input(string title)
     keypad(stdscr, TRUE);
 
     /* Initialize the fields */
-    field[0] = new_field(1, 10, 4, 18, 0, 0);
-    field[1] = new_field(1, 10, 6, 18, 0, 0);
+    field[0] = new_field(1, 70, 8, 7, 0, 0);
+    field[1] = new_field(1, 70, 10, 7, 0, 0);
     field[2] = NULL;
 
     /* Set field options */
@@ -136,8 +136,14 @@ ProjectWindow::get_input(string title)
     set_field_just(field[0], JUSTIFY_CENTER); /* Center Justification */
     set_field_buffer(field[0], 0, title.c_str()); 
 
-    mvprintw(4, 10, "Title: ");
-    mvprintw(6, 10, "Input: ");
+    set_field_back(field[1], A_UNDERLINE);
+    field_opts_off(field[1], O_AUTOSKIP); /* Don't go to next field when this */
+    
+    // char buffer[2048] = {0};
+    // set_field_buffer(field[1], 1, buffer);
+
+    mvprintw(8, 0, "Title: ");
+    mvprintw(10, 0, "Input: ");
     refresh();
 
     /* Loop through to get user requests */
@@ -150,17 +156,36 @@ ProjectWindow::get_input(string title)
             break;
         }
         // 打印输入字符
-        form_driver(my_form, ch);
+
+        switch(ch)
+        {
+            case KEY_LEFT: {
+                /* 移到上一个字符 */
+                form_driver(my_form, REQ_PREV_CHAR);
+            } break;
+            case KEY_RIGHT: {
+                /* 移到下一个字符 */
+                form_driver(my_form, REQ_NEXT_CHAR);
+            } break;
+            case KEY_BACKSPACE: {
+                form_driver(my_form, REQ_DEL_PREV);
+            } break;
+            default: {
+                form_driver(my_form, ch);
+            }
+        }
+        
     }
 
+    string input_text = field_buffer(field[1], 0);
     /* Un post form and free the memory */
     unpost_form(my_form);
     free_form(my_form);
     free_field(field[0]);
-    free_field(field[1]); 
+    free_field(field[1]);
 
     endwin();
-    return "";
+    return input_text;
 }
 
 void 
