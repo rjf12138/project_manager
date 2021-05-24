@@ -109,7 +109,7 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
 string 
 ProjectWindow::get_input(string title)
 {
-    FIELD *field[3];
+    FIELD *field[5];
     FORM  *my_form;
     int ch;
     
@@ -122,7 +122,9 @@ ProjectWindow::get_input(string title)
     /* Initialize the fields */
     field[0] = new_field(1, 70, 8, 7, 0, 0);
     field[1] = new_field(1, 70, 10, 7, 0, 0);
-    field[2] = NULL;
+    field[2] = new_field(1, 6, 12, 24, 0, 0);
+    field[3] = new_field(1, 10, 12, 40, 0, 0);
+    field[4] = nullptr;
 
     /* Set field options */
     field_opts_off(field[0], O_ACTIVE); /* This field is a static label */
@@ -137,22 +139,37 @@ ProjectWindow::get_input(string title)
     set_field_buffer(field[0], 0, title.c_str()); 
 
     set_field_back(field[1], A_UNDERLINE);
-    field_opts_off(field[1], O_AUTOSKIP); /* Don't go to next field when this */
-    
-    // char buffer[2048] = {0};
-    // set_field_buffer(field[1], 1, buffer);
+    field_opts_off(field[1], O_AUTOSKIP); /* Don't go to next field when this Field is filled up */
+    //field_opts_off(field[1], O_STATIC);
 
+    set_field_just(field[2], JUSTIFY_CENTER); /* Center Justification */
+    set_field_buffer(field[2], 0, "[ OK ]"); 
+    field_opts_off(field[2], O_AUTOSKIP);
+    field_opts_off(field[2], O_EDIT);
+
+    set_field_just(field[3], JUSTIFY_CENTER); /* Center Justification */
+    set_field_buffer(field[3], 0, "[ Cancel ]"); 
+    field_opts_off(field[3], O_AUTOSKIP);
+    field_opts_off(field[2], O_EDIT);
+    
     mvprintw(8, 0, "Title: ");
     mvprintw(10, 0, "Input: ");
     refresh();
 
     /* Loop through to get user requests */
+    string input_text;
+    int input_char_count = 0;
+    int current_cursor_pos = 0;
     while(true)
     {
         int ch = getch();
         if (ch == Keyboard_Enter) { // 回车键退出
+
+            form_driver(my_form, REQ_VALIDATION);
+            input_text = field_buffer(field[1], 0);
             break;
         } else if (ch == Keyboard_Esc) {
+            input_text = "";
             break;
         }
         // 打印输入字符
@@ -161,23 +178,39 @@ ProjectWindow::get_input(string title)
         {
             case KEY_LEFT: {
                 /* 移到上一个字符 */
-                form_driver(my_form, REQ_PREV_CHAR);
+                if (current_cursor_pos > 0) {
+                    --current_cursor_pos;
+                    form_driver(my_form, REQ_PREV_CHAR);
+                }
             } break;
             case KEY_RIGHT: {
                 /* 移到下一个字符 */
-                form_driver(my_form, REQ_NEXT_CHAR);
+                if (current_cursor_pos < input_char_count) {
+                    ++current_cursor_pos;
+                    form_driver(my_form, REQ_NEXT_CHAR);
+                }
             } break;
             case KEY_BACKSPACE: {
-                form_driver(my_form, REQ_DEL_PREV);
+                if (input_char_count > 0) {
+                    form_driver(my_form, REQ_DEL_PREV);
+                    --input_char_count;
+                }
+            } break;
+            case Keyboard_Tab: {
+                form_driver(my_form, REQ_NEXT_FIELD);
+                form_driver(my_form, REQ_END_LINE);
             } break;
             default: {
-                form_driver(my_form, ch);
+                if (input_char_count < Form_MaxInput) {
+                    form_driver(my_form, ch);
+                    ++input_char_count;
+                    ++current_cursor_pos;
+                }
             }
         }
         
     }
-
-    string input_text = field_buffer(field[1], 0);
+    
     /* Un post form and free the memory */
     unpost_form(my_form);
     free_form(my_form);

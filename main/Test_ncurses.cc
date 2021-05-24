@@ -27,10 +27,10 @@ int main()
 
         /* Set field options */
         set_field_back(field[0], A_UNDERLINE);
-        field_opts_off(field[0], O_AUTOSKIP); /* Don't go to next field when this */
+        //field_opts_off(field[0], O_AUTOSKIP); /* Don't go to next field when this */
                                               /* Field is filled up             */
         set_field_back(field[1], A_UNDERLINE); 
-        field_opts_off(field[1], O_AUTOSKIP);
+        //field_opts_off(field[1], O_AUTOSKIP);
         
         /* Create the form and post it */
         my_form = new_form(field);

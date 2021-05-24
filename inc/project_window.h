@@ -10,9 +10,11 @@
 #define ProjWin_InputPath   "Input Project Path"
 
 // 定义key
+#define Keyboard_Tab        9
 #define Keyboard_Enter      10
 #define Keyboard_Esc        27
 
+#define Form_MaxInput       69
 
 class ProjectWindow {
 public:
