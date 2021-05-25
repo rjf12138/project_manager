@@ -36,9 +36,8 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
 
     std::size_t display_num = display_paths.size();
     ITEM** items = new ITEM*[display_num + 1];
-    items[0] = new_item(ProjWin_InputPath, "");
     for (std::size_t i = 0; i < display_num; ++i) {
-        items[i + 1] = new_item(proj_name[i].c_str(), display_paths[i].c_str());
+        items[i] = new_item(proj_name[i].c_str(), display_paths[i].c_str());
     }
 
     MENU *project_menu = new_menu(items);
@@ -55,7 +54,7 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
 
     /* Print a border around the main window and print a title */
     box(menu_window, 0, 0);
-    this->print_in_middle(menu_window, 1, 0, 79, "Open Project", COLOR_PAIR(1));
+    this->print_in_middle(menu_window, 1, 0, 79, "Open Project(press 'q' to quit)", COLOR_PAIR(1));
     mvwaddch(menu_window, 2, 0, ACS_LTEE);
     mvwhline(menu_window, 2, 1, ACS_HLINE, 77);
     mvwaddch(menu_window, 2, 78, ACS_RTEE);
@@ -74,7 +73,7 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
                 curr_text = proj_path[project_menu->curitem->index]; // 返回项目路径
             }
             break;
-        } else if (ch == Keyboard_Esc) {
+        } else if (ch == 'q') {
             curr_text = "";
             break;
         }
@@ -102,7 +101,7 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
         free_item(items[i]);
     }
     endwin();
-
+    delete[] items;
     return curr_text;
 }
 
@@ -111,14 +110,15 @@ ProjectWindow::get_input(string title)
 {
     FIELD *field[5];
     FORM  *my_form;
-    int ch;
     
     /* Initialize curses */
     initscr();
+    start_color();
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
 
+    init_pair(1, COLOR_RED, COLOR_BLACK);
     /* Initialize the fields */
     field[0] = new_field(1, 70, 8, 7, 0, 0);
     field[1] = new_field(1, 70, 10, 7, 0, 0);
@@ -163,11 +163,15 @@ ProjectWindow::get_input(string title)
     while(true)
     {
         int ch = getch();
-        if (ch == Keyboard_Enter) { // 回车键退出
-
-            form_driver(my_form, REQ_VALIDATION);
-            input_text = field_buffer(field[1], 0);
-            break;
+        if (ch == Keyboard_Enter ){ 
+            if (my_form->current == field[2]) { // 回车键退出
+                form_driver(my_form, REQ_VALIDATION);
+                input_text = string(field_buffer(field[1], 0), input_char_count);
+                break;
+            } else if (my_form->current == field[3]) {
+                input_text = "";
+                break;
+            }
         } else if (ch == Keyboard_Esc) {
             input_text = "";
             break;
@@ -201,7 +205,23 @@ ProjectWindow::get_input(string title)
                 form_driver(my_form, REQ_END_LINE);
             } break;
             default: {
-                if (input_char_count < Form_MaxInput) {
+                bool isPrintChar = false;
+                if (ch >= '0' && ch <= '9') {
+                    isPrintChar = true;
+                } else if (ch >= 'a' && ch <= 'z') {
+                    isPrintChar = true;
+                } else if (ch >= 'A' && ch <= 'Z') {
+                    isPrintChar = true;
+                } else {
+                    for (size_t i = 0; i < strlen(PrintChars); ++i) {
+                        if (ch == PrintChars[i]) {
+                            isPrintChar = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (isPrintChar && input_char_count < Form_MaxInput) {
                     form_driver(my_form, ch);
                     ++input_char_count;
                     ++current_cursor_pos;
@@ -219,6 +239,87 @@ ProjectWindow::get_input(string title)
 
     endwin();
     return input_text;
+}
+
+// 消息提示
+bool 
+ProjectWindow::message(string title)
+{
+    FIELD *field[4];
+    FORM  *my_form;
+    
+    /* Initialize curses */
+    initscr();
+    start_color();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+    /* Initialize the fields */
+    field[0] = new_field(1, 70, 10, 7, 0, 0);
+    field[1] = new_field(1, 6, 12, 28, 0, 0);
+    field[2] = new_field(1, 10, 12, 42, 0, 0);
+    field[3] = nullptr;
+
+    /* Set field options */
+    field_opts_off(field[0], O_ACTIVE); /* This field is a static label */
+
+
+    /* Create the form and post it */
+    my_form = new_form(field);
+    post_form(my_form);
+    refresh();
+    
+    set_field_just(field[0], JUSTIFY_CENTER); /* Center Justification */
+    set_field_buffer(field[0], 0, title.c_str()); 
+
+    set_field_just(field[1], JUSTIFY_CENTER); /* Center Justification */
+    set_field_buffer(field[1], 0, "[ OK ]"); 
+    field_opts_off(field[1], O_AUTOSKIP);
+    field_opts_off(field[1], O_EDIT);
+
+    set_field_just(field[2], JUSTIFY_CENTER); /* Center Justification */
+    set_field_buffer(field[2], 0, "[ Cancel ]"); 
+    field_opts_off(field[2], O_AUTOSKIP);
+    field_opts_off(field[2], O_EDIT);
+    
+    refresh();
+
+    /* Loop through to get user requests */
+    bool choose;
+    while(true)
+    {
+        int ch = getch();
+        if (ch == Keyboard_Enter ){ 
+            if (my_form->current == field[1]) { // 回车键退出
+                choose = true;
+                break;
+            } else if (my_form->current == field[2]) {
+                choose = false;
+                break;
+            }
+        } else if (ch == Keyboard_Esc) {
+            choose = false;
+            break;
+        }
+        
+        switch (ch)
+        {
+            case Keyboard_Tab: {
+                form_driver(my_form, REQ_NEXT_FIELD);
+                form_driver(my_form, REQ_END_LINE);
+            } break;
+        }
+    }
+    
+    /* Un post form and free the memory */
+    unpost_form(my_form);
+    free_form(my_form);
+    free_field(field[0]);
+    free_field(field[1]);
+
+    endwin();
+    return choose;
 }
 
 void 

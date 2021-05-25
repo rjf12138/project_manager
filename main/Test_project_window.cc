@@ -1,6 +1,7 @@
 #include "project_window.h"
 
 vector<string> proj_name = {
+                        "Input Project Path",
                         "Choice 3",
                         "Choice 4",
                         "Choice 5",
@@ -19,6 +20,7 @@ vector<string> proj_name = {
                   };
 
 vector<string> proj_path = {
+                        "",
                         "/home/ruanjian/project_manager/doc/Choice 3",
                         "/home/ruanjian/Choice 4",
                         "/home/ruanjian/workspace/project_pre/project_manager/doc/Choice 5",
@@ -39,8 +41,9 @@ vector<string> proj_path = {
 int main(void)
 {
     ProjectWindow pw;
-    // string ret = pw.display_menu(proj_name, proj_path);
-    string ret = pw.get_input("This is a test input.");
-    cout << "ret: " << ret << " Size: " << ret.size() << endl;
+    string ret = pw.display_menu(proj_name, proj_path);
+    cout << ret << endl;
+    // bool ret = pw.message("This is a test input.");
+    // cout << "ret: " << ret << " Size: " << ret << endl;
     return 0;
 }
