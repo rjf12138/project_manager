@@ -2,10 +2,9 @@
 #include "exe_shell.h"
 #include "system_utils.h"
 
-Project::Project(string name, string path)
-:name_(name), project_located_path_(path)
+Project::Project(void)
+:name_(""), project_located_path_("")
 {
-    project_path_ = project_located_path_ + "/" + name_;
 }
 
 Project::~Project(void)
@@ -16,13 +15,53 @@ Project::~Project(void)
 int 
 Project::load_project(string project_path)
 {
-    project_path_ = project_path;
+    LOG_GLOBAL_TRACE("Load_project: %s", project_path.c_str());
+    bool is_new_project = false;
+    ByteBuffer buffer;
+    system_utils::Stream project_paths;
+    int ret = project_paths.open("./config/project_path.json");
+    if (ret == -1) {
+        return -1;
+    }
+    project_paths.read(buffer, project_paths.file_size());
+    WeJson js_project_paths(buffer);
+
+    if (project_path == "") { // 参数为空则从缓存文件中读取
+        vector<string> names={"Input Project Path",}, paths = {""};
+        JsonString js_name = js_project_paths["recent_open_project"]["name"];
+        JsonString js_path = js_project_paths["recent_open_project"]["path"];
+        names.push_back(js_name.value());
+        paths.push_back(js_path.value());
+
+        auto iter = js_project_paths["project_paths"].begin();
+        auto iter_end = js_project_paths["project_paths"].end();
+        for (; iter != iter_end; ++iter) {
+            js_name = iter.second()["name"];
+            js_path = iter.second()["path"];
+
+            if (js_path.value() == paths[1]) { // 最近打开过的项目，已经添加进去了，不用在加了
+                continue;
+            }
+
+            names.push_back(js_name.value());
+            paths.push_back(js_path.value());
+        }
+
+        project_path_ = _window.display_menu(names, paths);
+        if (project_path_ == ProjWin_InputPath) { // 新添加的项目路径
+            project_path_ = _window.get_input("Input new project path");
+            is_new_project = true;
+        }
+    } else {
+        project_path_ = project_path;
+        is_new_project = true;
+    }
 
     ByteBuffer config_buf;
     system_utils::Stream project_config;
 
     string config_path = project_path_ + "/.proj_config/project_config.json";
-    int ret = project_config.open(config_path);
+    ret = project_config.open(config_path);
     if (ret == -1) {
         LOG_GLOBAL_ERROR("Load project failed： Can not load project config.");
         return -1;
@@ -33,16 +72,34 @@ Project::load_project(string project_path)
     JsonString name = config_["project_name"];
     name_ = name.value();
     
+    if (is_new_project == true) {
+        WeJson new_project;
+        new_project["name"] = name_;
+        new_project["path"] = project_path_;
+        js_project_paths["project_paths"].add(new_project);
+    }
+
+    buffer.clear();
+    buffer.write_string(js_project_paths.format_json());
+    project_paths.write(buffer, buffer.data_size());
+
     return 0;
 }
 
 int 
-Project::create_project_dir(void)
+Project::create_project(void)
 {
-    string result;
+    name_ = _window.get_input("New Project Name");
+    project_path_ = _window.get_input("New Project create dir");
+    if (name_ == "" || project_path_ == "") {
+        LOG_GLOBAL_ERROR("Project name cant be empty");
+        return -1;
+    }
 
+    project_path_ = project_path_ + "/" + name_;
+    string result;
     exe_shell_cmd(result, "mkdir %s/", project_path_.c_str());
-    exe_shell_cmd(result, "mkdir %s/config_", project_path_.c_str());
+    exe_shell_cmd(result, "mkdir %s/config", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/doc", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/inc", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/lib", project_path_.c_str());
@@ -62,8 +119,7 @@ Project::create_project_dir(void)
 
     string project_config_path = project_path_ + "/.proj_config/project_config.json";
     this->generate_project_config(project_config_path);
-    // string project_vscode_path = project_path_ + "/.vscode";
-    // this->generate_vscode_config(project_vscode_path);
+    this->load_project(project_path_);
 
     return 0;
 }
@@ -73,6 +129,7 @@ int Project::generate_project_config(string path)
     string result;
     ByteBuffer buffer;
     WeJson arr("[]");
+    config_.parse("{}");
 
     config_["project_name"] = name_;
     config_["project_path"] = project_located_path_ + "/" + name_;

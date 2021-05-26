@@ -24,23 +24,23 @@ int param_argv(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
-    Project proj("proj1", ".");
+    Project proj;
     int ret = param_argv(argc, argv);
     switch (ret)
     {
         case PMO_Help:
         {
-            std::cout << "PMO_Help" << std::endl;
             print_help();
         } break;
         case PMO_Load:
         {
             std::cout << "PMO_Load" << std::endl;
+            proj.load_project();
         } break;
         case PMO_CreateProject:
         {
             std::cout << "PMO_CreateProject" << std::endl;
-            proj.create_project_dir();
+            proj.create_project();
         } break;
         case PMO_BuildProjectWithDebug:
         {
