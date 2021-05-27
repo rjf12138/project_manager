@@ -52,35 +52,38 @@ Project::load_project(string project_path)
             project_path_ = _window.get_input("Input new project path");
             is_new_project = true;
         }
+
+        ByteBuffer config_buf;
+        system_utils::Stream project_config;
+        string config_path = project_path_ + "/.proj_config/project_config.json";
+        ret = project_config.open(config_path);
+        if (ret == -1) {
+            LOG_GLOBAL_ERROR("Load project failed： Can not load project config.");
+            return -1;
+        }
+        project_config.read(config_buf, project_config.file_size());
+        config_.parse(config_buf);
+
+        JsonString name = config_["project_name"];
+        name_ = name.value();
     } else {
         project_path_ = project_path;
         is_new_project = true;
     }
-
-    ByteBuffer config_buf;
-    system_utils::Stream project_config;
-
-    string config_path = project_path_ + "/.proj_config/project_config.json";
-    ret = project_config.open(config_path);
-    if (ret == -1) {
-        LOG_GLOBAL_ERROR("Load project failed： Can not load project config.");
-        return -1;
-    }
-    project_config.read(config_buf, config_buf.data_size());
-    config_.parse(config_buf);
-
-    JsonString name = config_["project_name"];
-    name_ = name.value();
     
     if (is_new_project == true) {
-        WeJson new_project;
+        WeJson new_project("{}");
         new_project["name"] = name_;
         new_project["path"] = project_path_;
         js_project_paths["project_paths"].add(new_project);
     }
 
+    js_project_paths["recent_open_project"]["name"] = name_;
+    js_project_paths["recent_open_project"]["path"] = project_path_;
+
     buffer.clear();
     buffer.write_string(js_project_paths.format_json());
+    project_paths.clear_file();
     project_paths.write(buffer, buffer.data_size());
 
     return 0;
@@ -90,9 +93,14 @@ int
 Project::create_project(void)
 {
     name_ = _window.get_input("New Project Name");
-    project_path_ = _window.get_input("New Project create dir");
-    if (name_ == "" || project_path_ == "") {
-        LOG_GLOBAL_ERROR("Project name cant be empty");
+    if (name_ == "") {
+        LOG_GLOBAL_ERROR("Project name can't be empty");
+        return -1;
+    }
+
+    project_path_ = _window.get_input("The new project is located at");
+    if (project_path_ == "") {
+        LOG_GLOBAL_ERROR("Project path can't be empty");
         return -1;
     }
 
@@ -240,7 +248,7 @@ Project::generate_vscode_config(string path)
         exe_shell_cmd(result, "echo \"            \"args\": [\"%s\"],\"                              >> %s/launch.json", path.c_str(), program_arg.value().c_str());
     }
     exe_shell_cmd(result, "echo \"            \"stopAtEntry\": false,\"                              >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            \"cwd\": \"%s\",\"                                     >> %s/launch.json", path.c_str(), project_path_.c_str());
+    exe_shell_cmd(result, "echo \"            \"cwd\": \"%s\",\"                                     >> %s/launch.json", output_bin_path_.c_str());
     exe_shell_cmd(result, "echo \"            \"environment\": [],\"                                 >> %s/launch.json", path.c_str());
     exe_shell_cmd(result, "echo \"            \"externalConsole\": false,\"                          >> %s/launch.json", path.c_str());
     exe_shell_cmd(result, "echo \"            \"MIMode\": \"gdb\",\"                                 >> %s/launch.json", path.c_str());
