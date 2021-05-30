@@ -35,10 +35,11 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
     }
 
     std::size_t display_num = display_paths.size();
-    ITEM** items = new ITEM*[display_num];
+    ITEM** items = new ITEM*[display_num + 1];
     for (std::size_t i = 0; i < display_num; ++i) {
         items[i] = new_item(proj_name[i].c_str(), display_paths[i].c_str());
     }
+    items[display_num] = (ITEM *)NULL;
 
     MENU *project_menu = new_menu(items);
     WINDOW *menu_window = newwin(23, 79, 0, 0);

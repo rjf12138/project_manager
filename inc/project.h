@@ -14,6 +14,7 @@ public:
 
     int load_project(string project_path = "");
     int create_project(void);
+    int modify_config(void);
 
     int generate_project_config(string path);
     int generate_vscode_config(string path);
@@ -21,6 +22,8 @@ public:
     int print_proj_name(void);
 
 private:
+    bool is_project_opened_;
+
     string name_;
     string project_located_path_;
     string project_path_;

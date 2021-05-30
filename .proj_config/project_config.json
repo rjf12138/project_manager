@@ -37,7 +37,7 @@
 		"Test_ncurses.cc",
 		"Test_project_window.cc"
 	],
-	"程序参数":"#-cp",
+	"程序参数":"#-l",
 	"编译方式":"debug",
 	"静态库目录列表":[
 		"./lib/debug/",

@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/home/ruanjian/workspace/project_pre/project_manager/output/debug/bin/main",
-            "args": ["-cp"],
+            "args": ["-l"],
             "stopAtEntry": false,
             "cwd": "/home/ruanjian/workspace/project_pre/project_manager",
             "environment": [],

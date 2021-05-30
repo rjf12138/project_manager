@@ -3,7 +3,9 @@
 #include "system_utils.h"
 
 Project::Project(void)
-:name_(""), project_located_path_("")
+    :is_project_opened_(false), 
+     name_(""), 
+     project_located_path_("")
 {
 }
 
@@ -25,14 +27,14 @@ Project::load_project(string project_path)
     }
     project_paths.read(buffer, project_paths.file_size());
     WeJson js_project_paths(buffer);
-
+    
     if (project_path == "") { // 参数为空则从缓存文件中读取
         vector<string> names={"Input Project Path",}, paths = {""};
         JsonString js_name = js_project_paths["recent_open_project"]["name"];
         JsonString js_path = js_project_paths["recent_open_project"]["path"];
         names.push_back(js_name.value());
         paths.push_back(js_path.value());
-
+        
         auto iter = js_project_paths["project_paths"].begin();
         auto iter_end = js_project_paths["project_paths"].end();
         for (; iter != iter_end; ++iter) {
@@ -86,6 +88,7 @@ Project::load_project(string project_path)
     project_paths.clear_file();
     project_paths.write(buffer, buffer.data_size());
 
+    is_project_opened_ = true;
     return 0;
 }
 
@@ -166,7 +169,7 @@ int Project::generate_project_config(string path)
 
     arr.parse("[]");
     arr.add("g++");
-    config_["choose_compiler"] = arr;
+    config_["ListOfAvailableCompilers"] = arr;
     arr.clear();
 
     config_["release_compile_option"] = "-O2 -Wall -std=c++11";
@@ -183,7 +186,7 @@ int Project::generate_project_config(string path)
     config_["debug_link_library"] = arr;
     arr.clear();
 
-    config_["compile_method"] = "debug";
+    config_["CompilationMethod"] = "debug";
     config_["program_run_arg"] = "";
 
 
@@ -264,4 +267,60 @@ Project::generate_vscode_config(string path)
     exe_shell_cmd(result, "echo \"}\"                                                                >> %s/launch.json", path.c_str());
 
     return 0;
+}
+
+
+int 
+Project::modify_config(void)
+{
+    JsonString js_value;
+    vector<string> cfg_params = {"Name", "UUID", "Current compiler", "List of available compilers", "Compilation method", "Compilation parameters"};
+    vector<string> cfg_values = {"Name", "UUID", "CurrentCompiler", "ListOfAvailableCompilers", "CompilationMethod", "CompilationParameters"};
+
+    if (is_project_opened_ == false) {
+        LOG_GLOBAL_ERROR("No project has been loaded yet");
+        return -1;
+    }
+
+    cfg_params.push_back("Name");
+    cfg_values.push_back(name_);
+
+    cfg_params.push_back("Path");
+    cfg_values.push_back(project_path_);
+
+    cfg_params.push_back("UUID");
+    js_value = config_["UUID"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Current compiler");
+    js_value = config_["CurrentCompiler"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("List of available compilers");
+    js_value = config_["ListOfAvailableCompilers"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Compilation method"); // Debug or Release
+    js_value = config_["CompilationMethod"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Compilation parameters");
+    js_value = config_["CompilationParameters"];
+    cfg_values.push_back(js_value.value());
+    
+    cfg_params.push_back("Compilation parameters");
+    js_value = config_["CompilationParameters"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Generate file type"); // share, static, exe
+    js_value = config_["GenerateFileType"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Main file name"); // 主函数所在的文件名称
+    js_value = config_["MainFileName"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Header file directory listing"); // 主函数所在的文件名称
+    js_value = config_["HeaderFileDirectoryListing"];
+    cfg_values.push_back(js_value.value());
 }
