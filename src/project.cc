@@ -274,8 +274,8 @@ int
 Project::modify_config(void)
 {
     JsonString js_value;
-    vector<string> cfg_params = {"Name", "UUID", "Current compiler", "List of available compilers", "Compilation method", "Compilation parameters"};
-    vector<string> cfg_values = {"Name", "UUID", "CurrentCompiler", "ListOfAvailableCompilers", "CompilationMethod", "CompilationParameters"};
+    vector<string> cfg_params;
+    vector<string> cfg_values;
 
     if (is_project_opened_ == false) {
         LOG_GLOBAL_ERROR("No project has been loaded yet");
@@ -292,8 +292,12 @@ Project::modify_config(void)
     js_value = config_["UUID"];
     cfg_values.push_back(js_value.value());
 
-    cfg_params.push_back("Current compiler");
+    cfg_params.push_back("Current compiler"); // 选择使用的编译器
     js_value = config_["CurrentCompiler"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Add compiler"); // 添加编译器
+    js_value = config_["AddCompiler"];
     cfg_values.push_back(js_value.value());
 
     cfg_params.push_back("List of available compilers");
@@ -307,10 +311,6 @@ Project::modify_config(void)
     cfg_params.push_back("Compilation parameters");
     js_value = config_["CompilationParameters"];
     cfg_values.push_back(js_value.value());
-    
-    cfg_params.push_back("Compilation parameters");
-    js_value = config_["CompilationParameters"];
-    cfg_values.push_back(js_value.value());
 
     cfg_params.push_back("Generate file type"); // share, static, exe
     js_value = config_["GenerateFileType"];
@@ -320,7 +320,80 @@ Project::modify_config(void)
     js_value = config_["MainFileName"];
     cfg_values.push_back(js_value.value());
 
-    cfg_params.push_back("Header file directory listing"); // 主函数所在的文件名称
+    cfg_params.push_back("Library listing"); // 库列表
+    js_value = config_["LibraryListing"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Header file directory listing"); // 头文件目录列表
     js_value = config_["HeaderFileDirectoryListing"];
     cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Source file directory listing"); // 源文件目录列表
+    js_value = config_["SourceFileDirectoryListing"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Library directory listing"); // 库目录列表
+    js_value = config_["LibraryDirectoryListing"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Import and export directory"); // 库和头文件导入导出目录
+    js_value = config_["ImportAndExportDirectory"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Save");   // 库和头文件导入导出目录
+    js_value = config_["!@#$"];     // 随机定的保存字符串
+    cfg_values.push_back(js_value.value());
+
+    while (true) {
+        string value = _window.display_menu(cfg_params, cfg_values);
+        if (value == "") {
+            break;
+        }
+
+        if (value == "CurrentCompiler") {
+            while (true) {
+                vector<string> compiler_nums = {"1"};
+                vector<string> compiler_names = {"Add new compiler"};
+                for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
+                    compiler_nums.push_back(to_string(i + 2));
+
+                    JsonString tmp_value = config_["ChooseCompiler"][i]["CompilerName"];
+                    compiler_names.push_back(tmp_value.value());
+                }
+
+                string compiler_name = _window.display_menu(compiler_nums, compiler_names);
+                if (compiler_name == "Add new compiler") {
+                    WeJson new_compiler("{}");
+                    string new_compiler_name = _window.get_input("New compiler Name");
+                    if (new_compiler_name == "") {
+                        
+                    } else {
+                        new_compiler["CompilerName"] = new_compiler_name;
+                        string new_compiler_option = _window.get_input("New compiler debug option");
+                        new_compiler["DebugOption"] = new_compiler_option;
+
+                        new_compiler_option = _window.get_input("New compiler release option");
+                        new_compiler["ReleaseOption"] = new_compiler_option;
+
+                        config_["ChooseCompiler"].add(new_compiler);
+                    }
+                } else {
+                    config_["CurrentCompiler"] = compiler_name;
+                    JsonString compile_method = config_["CompilationMethod"];
+                    
+                    for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
+                        JsonString choose_compiler_name = config_["ChooseCompiler"][i]["CompilerName"];
+                        if (choose_compiler_name.value() == compiler_name) {
+                            if (compile_method.value() == "Release") {
+                                config_["CompilationParameters"] = config_["ChooseCompiler"][i]["ReleaseOption"];
+                            } else {
+                                config_["CompilationParameters"] = config_["ChooseCompiler"][i]["DebugOption"];
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
 }
