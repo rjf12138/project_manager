@@ -51,7 +51,7 @@ Project::load_project(string project_path)
 
         project_path_ = _window.display_menu(names, paths);
         if (project_path_ == ProjWin_InputPath) { // 新添加的项目路径
-            project_path_ = _window.get_input("Input new project path");
+            _window.get_input(project_path_, "Input new project path");
             is_new_project = true;
         }
 
@@ -60,7 +60,7 @@ Project::load_project(string project_path)
         string config_path = project_path_ + "/.proj_config/project_config.json";
         ret = project_config.open(config_path);
         if (ret == -1) {
-            LOG_GLOBAL_ERROR("Load project failed： Can not load project config.");
+            LOG_GLOBAL_ERROR("Load project failed： Can not load project config: %s.", config_path.c_str());
             return -1;
         }
         project_config.read(config_buf, project_config.file_size());
@@ -95,13 +95,13 @@ Project::load_project(string project_path)
 int 
 Project::create_project(void)
 {
-    name_ = _window.get_input("New Project Name");
+    _window.get_input(name_, "New Project Name");
     if (name_ == "") {
         LOG_GLOBAL_ERROR("Project name can't be empty");
         return -1;
     }
 
-    project_path_ = _window.get_input("The new project is located at");
+    _window.get_input(project_path_, "The new project is located at");
     if (project_path_ == "") {
         LOG_GLOBAL_ERROR("Project path can't be empty");
         return -1;
@@ -296,13 +296,13 @@ Project::modify_config(void)
     js_value = config_["CurrentCompiler"];
     cfg_values.push_back(js_value.value());
 
-    cfg_params.push_back("Add compiler"); // 添加编译器
-    js_value = config_["AddCompiler"];
-    cfg_values.push_back(js_value.value());
+    // cfg_params.push_back("Add compiler"); // 添加编译器
+    // js_value = config_["AddCompiler"];
+    // cfg_values.push_back(js_value.value());
 
-    cfg_params.push_back("List of available compilers");
-    js_value = config_["ListOfAvailableCompilers"];
-    cfg_values.push_back(js_value.value());
+    // cfg_params.push_back("List of available compilers");
+    // js_value = config_["ListOfAvailableCompilers"];
+    // cfg_values.push_back(js_value.value());
 
     cfg_params.push_back("Compilation method"); // Debug or Release
     js_value = config_["CompilationMethod"];
@@ -364,15 +364,17 @@ Project::modify_config(void)
                 string compiler_name = _window.display_menu(compiler_nums, compiler_names);
                 if (compiler_name == "Add new compiler") {
                     WeJson new_compiler("{}");
-                    string new_compiler_name = _window.get_input("New compiler Name");
+                    string new_compiler_name;
+                    _window.get_input(new_compiler_name, "New compiler Name");
                     if (new_compiler_name == "") {
-                        
+                        // 什么都不做回到编译器选择界面
                     } else {
                         new_compiler["CompilerName"] = new_compiler_name;
-                        string new_compiler_option = _window.get_input("New compiler debug option");
+                        string new_compiler_option;
+                        _window.get_input(new_compiler_option, "New compiler debug option");
                         new_compiler["DebugOption"] = new_compiler_option;
 
-                        new_compiler_option = _window.get_input("New compiler release option");
+                        _window.get_input(new_compiler_option, "New compiler release option");
                         new_compiler["ReleaseOption"] = new_compiler_option;
 
                         config_["ChooseCompiler"].add(new_compiler);
@@ -394,6 +396,48 @@ Project::modify_config(void)
                     break;
                 }
             }
+        } else if (value == "CompilationMethod") {
+            vector<string> nums = {"1", "2"};
+            vector<string> compile_method = {"Debug", "Release"};
+            string method = _window.display_menu(nums, compile_method);
+            if (method == "") {
+                continue;
+            }
+            config_["CompilationMethod"] = method;
+            
+            JsonString current_compile_name = config_["CurrentCompiler"];
+            for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
+                JsonString choose_compiler_name = config_["ChooseCompiler"][i]["CompilerName"];
+                if (choose_compiler_name.value() == current_compile_name.value()) {
+                    if (method == "Release") {
+                        config_["CompilationParameters"] = config_["ChooseCompiler"][i]["ReleaseOption"];
+                    } else {
+                        config_["CompilationParameters"] = config_["ChooseCompiler"][i]["DebugOption"];
+                    }
+                }
+            }
+        } else if (value == "CompilationParameters") {
+            JsonString param = config_["CompilationParameters"];
+            string ret_param;
+            int ret = _window.get_input(ret_param, "Modify compile parameters", param.value());
+            if (ret != -1) {
+                config_["CompilationParameters"] = ret_param;
+            }
+        } else if (value == "GenerateFileType") {
+            vector<string> keys = {"1", "2", "3"};
+            vector<string> values = {"exe", "static", "share"};
+
+            string type = _window.display_menu(keys, values);
+            config_["GenerateFileType"] = type;
+        } else if (value == "MainFileName") {
+            vector<string> keys, values;
+            for (int i = 0; i < config_["MainFileNameList"].size(); ++i) {
+                keys.push_back(to_string(i + 1));
+                JsonString main_filename = config_["MainFileNameList"][i];
+                values.push_back(main_filename.value());
+            }
+            string main_filename = _window.display_menu(keys, values);
+            config_["MainFileName"] = main_filename;
         }
     }
 }

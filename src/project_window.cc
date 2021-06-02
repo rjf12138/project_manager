@@ -106,8 +106,8 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
     return curr_text;
 }
 
-string 
-ProjectWindow::get_input(string title)
+int 
+ProjectWindow::get_input(string &input, string title, string default_value)
 {
     FIELD *field[5];
     FORM  *my_form;
@@ -141,6 +141,7 @@ ProjectWindow::get_input(string title)
 
     set_field_back(field[1], A_UNDERLINE);
     field_opts_off(field[1], O_AUTOSKIP); /* Don't go to next field when this Field is filled up */
+    set_field_buffer(field[1], 0, default_value.c_str());
     //field_opts_off(field[1], O_STATIC);
 
     set_field_just(field[2], JUSTIFY_CENTER); /* Center Justification */
@@ -158,24 +159,25 @@ ProjectWindow::get_input(string title)
     refresh();
 
     /* Loop through to get user requests */
-    string input_text;
-    int input_char_count = 0;
-    int current_cursor_pos = 0;
+    int ret_status = 0;
+    int input_char_count = default_value.size();
+    int current_cursor_pos = default_value.size();
+    for (int i = 0;i < input_char_count; ++i) { // 移到默认字符串尾部
+        form_driver(my_form, REQ_NEXT_CHAR);
+    }
     while(true)
     {
         int ch = getch();
         if (ch == Keyboard_Enter ){ 
             if (my_form->current == field[2]) { // 回车键退出
                 form_driver(my_form, REQ_VALIDATION);
-                input_text = string(field_buffer(field[1], 0), input_char_count);
+                input = string(field_buffer(field[1], 0), input_char_count);
                 break;
             } else if (my_form->current == field[3]) {
-                input_text = "";
-                break;
+                ret_status = -1;
             }
         } else if (ch == Keyboard_Esc) {
-            input_text = "";
-            break;
+            ret_status = -1;
         }
         // 打印输入字符
 
@@ -239,7 +241,7 @@ ProjectWindow::get_input(string title)
     free_field(field[1]);
 
     endwin();
-    return input_text;
+    return ret_status;
 }
 
 // 消息提示

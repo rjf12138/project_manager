@@ -41,9 +41,10 @@ vector<string> proj_path = {
 int main(void)
 {
     ProjectWindow pw;
-    string ret = pw.display_menu(proj_name, proj_path);
-    cout << ret << endl;
-    // bool ret = pw.message("This is a test input.");
-    // cout << "ret: " << ret << " Size: " << ret << endl;
+    // string ret = pw.display_menu(proj_name, proj_path);
+    // cout << ret << endl;
+    string input;
+    int ret = pw.get_input(input, "This is a test input.", "Hello");
+    cout << "ret: " << input << " Size: " << input.size() << endl;
     return 0;
 }

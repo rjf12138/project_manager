@@ -26,7 +26,7 @@ public:
     /// 失败返回"", 主动输入路径返回 "-Input"
     string display_menu(vector<string> proj_name, vector<string> proj_path);
     /// 获取输入
-    string get_input(string title);
+    int get_input(string &ret, string title, string default_value = "");
     // 消息提示
     bool message(string title);
 private:
