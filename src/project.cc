@@ -438,6 +438,180 @@ Project::modify_config(void)
             }
             string main_filename = _window.display_menu(keys, values);
             config_["MainFileName"] = main_filename;
+        } else if (value == "LibraryListing") {
+            vector<string> keys = {"1", "2", "3", "4"}, values = {"View Libraries", "Add Library", "Remove Library", "Exit"};
+            while (true) {
+                string operation = _window.display_menu(keys, values);
+                if (operation == "View Libraries") {
+                    vector<string> nums, library_list;
+                    for (int i = 0; i < config_["LibraryListing"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["LibraryListing"][i];
+                        nums.push_back(name.value());
+                    }
+                    _window.display_menu(nums, library_list);
+                } else if (operation == "Add Library") {
+                    string library_name;
+                    int ret = _window.get_input(library_name, "Input Library name");
+                    if (ret == -1 || library_name == "") {
+                        continue;
+                    }
+                    config_["LibraryListing"].add(library_name);
+                } else if (operation == "Remove Library") {
+                    vector<string> nums, library_list;
+                    for (int i = 0; i < config_["LibraryListing"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["LibraryListing"][i];
+                        nums.push_back(name.value());
+                    }
+                    string library_name = _window.display_menu(nums, library_list);
+                    if (library_name == "") {
+                        continue;
+                    }
+
+                    string title = "Are you sure to delete ";
+                    bool is_delete = _window.message(title + library_name);
+                    for (int i = 0; i < config_["LibraryListing"].size() && is_delete; ++i) {
+                        JsonString name = config_["LibraryListing"][i];
+                        if (name.value() == library_name) {
+                            config_["LibraryListing"].erase(i);
+                            continue;
+                        }
+                    }
+                }
+            }
+        } else if (value == "HeaderFileDirectoryListing") {
+            vector<string> keys = {"1", "2", "3", "4"}, values = {"View header directories", "Add header directory", "Remove header directory", "Exit"};
+            while (true) {
+                string operation = _window.display_menu(keys, values);
+                if (operation == "View header directories") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["HeaderFileDirectoryListing"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["HeaderFileDirectoryListing"][i];
+                        nums.push_back(name.value());
+                    }
+                    _window.display_menu(nums, list);
+                } else if (operation == "Add header directory") {
+                    string name;
+                    int ret = _window.get_input(name, "Input Library name");
+                    if (ret == -1 || name == "") {
+                        continue;
+                    }
+                    config_["HeaderFileDirectoryListing"].add(name);
+                } else if (operation == "Remove header directory") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["HeaderFileDirectoryListing"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["HeaderFileDirectoryListing"][i];
+                        nums.push_back(name.value());
+                    }
+                    string del_name = _window.display_menu(nums, list);
+                    if (del_name == "") {
+                        continue;
+                    }
+
+                    string title = "Are you sure to delete ";
+                    bool is_delete = _window.message(title + del_name);
+                    for (int i = 0; i < config_["HeaderFileDirectoryListing"].size() && is_delete; ++i) {
+                        JsonString name = config_["HeaderFileDirectoryListing"][i];
+                        if (name.value() == del_name) {
+                            config_["HeaderFileDirectoryListing"].erase(i);
+                            continue;
+                        }
+                    }
+                } else if (operation == "Exit") {
+                    break;
+                }
+            }
+        } else if (value == "SourceFileDirectoryListing") {
+            vector<string> keys = {"1", "2", "3", "4"}, values = {"View source directories", "Add source directory", "Remove source directory", "Exit"};
+            while (true) {
+                string operation = _window.display_menu(keys, values);
+                if (operation == "View source directories") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["SourceFileDirectoryListing"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["SourceFileDirectoryListing"][i];
+                        nums.push_back(name.value());
+                    }
+                    _window.display_menu(nums, list);
+                } else if (operation == "Add source directory") {
+                    string name;
+                    int ret = _window.get_input(name, "Input Library name");
+                    if (ret == -1 || name == "") {
+                        continue;
+                    }
+                    config_["SourceFileDirectoryListing"].add(name);
+                } else if (operation == "Remove source directory") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["SourceFileDirectoryListing"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["SourceFileDirectoryListing"][i];
+                        nums.push_back(name.value());
+                    }
+                    string del_name = _window.display_menu(nums, list);
+                    if (del_name == "") {
+                        continue;
+                    }
+
+                    string title = "Are you sure to delete ";
+                    bool is_delete = _window.message(title + del_name);
+                    for (int i = 0; i < config_["SourceFileDirectoryListing"].size() && is_delete; ++i) {
+                        JsonString name = config_["SourceFileDirectoryListing"][i];
+                        if (name.value() == del_name) {
+                            config_["SourceFileDirectoryListing"].erase(i);
+                            continue;
+                        }
+                    }
+                } else if (operation == "Exit") {
+                    break;
+                }
+            }
+        } else if (value == "LibraryDirectoryListing") {
+            vector<string> keys = {"1", "2", "3", "4"}, values = {"View library directories", "Add library directory", "Remove library directory", "Exit"};
+            while (true) {
+                string operation = _window.display_menu(keys, values);
+                if (operation == "View library directories") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["LibraryDirectoryListing"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["LibraryDirectoryListing"][i];
+                        nums.push_back(name.value());
+                    }
+                    _window.display_menu(nums, list);
+                } else if (operation == "Add library directory") {
+                    string name;
+                    int ret = _window.get_input(name, "Input Library name");
+                    if (ret == -1 || name == "") {
+                        continue;
+                    }
+                    config_["LibraryDirectoryListing"].add(name);
+                } else if (operation == "Remove library directory") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["LibraryDirectoryListing"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["LibraryDirectoryListing"][i];
+                        nums.push_back(name.value());
+                    }
+                    string del_name = _window.display_menu(nums, list);
+                    if (del_name == "") {
+                        continue;
+                    }
+
+                    string title = "Are you sure to delete ";
+                    bool is_delete = _window.message(title + del_name);
+                    for (int i = 0; i < config_["LibraryDirectoryListing"].size() && is_delete; ++i) {
+                        JsonString name = config_["LibraryDirectoryListing"][i];
+                        if (name.value() == del_name) {
+                            config_["LibraryDirectoryListing"].erase(i);
+                            continue;
+                        }
+                    }
+                } else if (operation == "Exit") {
+                    break;
+                }
+            }
         }
     }
 }
