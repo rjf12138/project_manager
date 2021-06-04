@@ -615,3 +615,26 @@ Project::modify_config(void)
         }
     }
 }
+
+
+int 
+Project::pull_file(void)
+{
+    JsonString js_value = config_["ImportAndExportDirectory"];
+    string path = js_value.value();
+    if (path == "") {
+        return -1;
+    }
+
+    string include_path = path + "/include";
+    string library_path = path + "/lib";
+
+    string result;
+    exe_shell_cmd(result, "ls ./inc");
+}
+
+int 
+Project::push_file(void)
+{
+
+}

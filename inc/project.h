@@ -18,8 +18,9 @@ public:
 
     int generate_project_config(string path);
     int generate_vscode_config(string path);
-
-    int print_proj_name(void);
+    
+    int pull_file(void);
+    int push_file(void);
 
 private:
     bool is_project_opened_;
