@@ -26,7 +26,7 @@ private:
     bool is_project_opened_;
 
     string name_;
-    string project_located_path_;
+    string project_install_path_;
     string project_path_;
     string output_bin_path_;
     string output_lib_path_;

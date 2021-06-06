@@ -4,8 +4,7 @@
 
 Project::Project(void)
     :is_project_opened_(false), 
-     name_(""), 
-     project_located_path_("")
+     name_("")
 {
 }
 
@@ -29,7 +28,10 @@ Project::load_project(string project_path)
     WeJson js_project_paths(buffer);
     
     if (project_path == "") { // 参数为空则从缓存文件中读取
-        vector<string> names={"Input Project Path",}, paths = {""};
+        JsonString js_proj_install_path = js_project_paths["project_install_path"];
+        project_install_path_ = js_proj_install_path.value();
+
+        vector<string> names={"Input Project Path"}, paths = {""};
         JsonString js_name = js_project_paths["recent_open_project"]["name"];
         JsonString js_path = js_project_paths["recent_open_project"]["path"];
         names.push_back(js_name.value());
@@ -143,7 +145,7 @@ int Project::generate_project_config(string path)
     config_.parse("{}");
 
     config_["project_name"] = name_;
-    config_["project_path"] = project_located_path_ + "/" + name_;
+    config_["project_path"] = project_path_;
 
     exe_shell_cmd(result, "uuidgen | tr -d '\n'");
     config_["project_uuid"] = result;
@@ -626,9 +628,14 @@ Project::pull_file(void)
         return -1;
     }
 
-    string include_path = path + "/include";
-    string library_path = path + "/lib";
-
+#ifdef __RJF_WINDOWS__
+    string include_path = path + "project_manager/local/Windows/include";
+    string library_path = path + "project_manager/local/Windows/lib";
+#else
+    string include_path = path + "project_manager/local/Ubuntu/include";
+    string library_path = path + "project_manager/local/Ubuntu/lib";
+#endif
+    // 使用 rsync -r -u --delete ;-r 递归目录， -u 更新 --delete 如果源端没有的文件则会在目标端删除
     string result;
     exe_shell_cmd(result, "ls ./inc");
 }
