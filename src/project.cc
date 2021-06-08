@@ -342,6 +342,10 @@ Project::modify_config(void)
     js_value = config_["ImportAndExportDirectory"];
     cfg_values.push_back(js_value.value());
 
+    cfg_params.push_back("Associated project"); // 关联项目
+    js_value = config_["AssociatedProject"];
+    cfg_values.push_back(js_value.value());
+
     cfg_params.push_back("Save");   // 库和头文件导入导出目录
     js_value = config_["!@#$"];     // 随机定的保存字符串
     cfg_values.push_back(js_value.value());
@@ -628,20 +632,78 @@ Project::pull_file(void)
         return -1;
     }
 
+    JsonString compile_method = config_["CompilationMethod"];
 #ifdef __RJF_WINDOWS__
-    string include_path = path + "project_manager/local/Windows/include";
-    string library_path = path + "project_manager/local/Windows/lib";
+    string include_path = path + "/project_manager/local/include";
+    string library_path = path + "/project_manager/local/lib";
 #else
-    string include_path = path + "project_manager/local/Ubuntu/include";
-    string library_path = path + "project_manager/local/Ubuntu/lib";
+    string include_path = path + "/project_manager/local/include";
+    string library_path = path + "/project_manager/local/lib/" + compile_method.value();
 #endif
+
+    ByteBuffer buffer;
+    string js_file_path = path + "/project_manager/local/ProjectAssociatedFile.json";
+    system_utils::Stream file_stream;
+
+    file_stream.open(js_file_path);
+    file_stream.read(buffer, file_stream.file_size());
+    WeJson js_file(buffer);
+
+    JsonArray associate_proj_array = config_["AssociatedProject"];
     // 使用 rsync -r -u --delete ;-r 递归目录， -u 更新 --delete 如果源端没有的文件则会在目标端删除
-    string result;
-    exe_shell_cmd(result, "ls ./inc");
+    for (int i = 0; i < associate_proj_array.size(); ++i) {
+        JsonString name = associate_proj_array[i];
+        for (int j = 0; j < js_file.size(); ++j) {
+            JsonObject object = js_file[i];
+            JsonString proj_name = object["Name"];
+            if (name.value() == proj_name.value()) {
+                // 同步头文件
+                JsonArray array = object["Include"];
+                for (int i = 0; i < array.size(); ++i) {
+                    JsonString pull_file = array[i];
+                    string cmd = "rsync -r -u --delete ";
+                    cmd += include_path + "/" + proj_name.value() + "/" + pull_file.value() + " ";
+                    cmd += project_path_ + "/inc/" + pull_file.value();
+                }
+
+                // 同步库文件
+                JsonArray array = object["Library"];
+                for (int i = 0; i < array.size(); ++i) {
+                    JsonString pull_file = array[i];
+                    string cmd = "rsync -r -u --delete ";
+                    cmd += include_path + "/" + proj_name.value() + "/" + pull_file.value() + " ";
+                    cmd += project_path_ + "/lib/" + compile_method.value() +"/" + pull_file.value();
+                }
+            }
+        }
+    }
 }
 
 int 
 Project::push_file(void)
 {
+    JsonString js_value = config_["ImportAndExportDirectory"];
+    string path = js_value.value();
+    if (path == "") {
+        return -1;
+    }
 
+    JsonString compile_method = config_["CompilationMethod"];
+#ifdef __RJF_WINDOWS__
+    string include_path = path + "/project_manager/local/include";
+    string library_path = path + "/project_manager/local/lib";
+#else
+    string include_path = path + "/project_manager/local/include";
+    string library_path = path + "/project_manager/local/lib/" + compile_method.value();
+#endif
+
+    ByteBuffer buffer;
+    string js_file_path = path + "/project_manager/local/ProjectAssociatedFile.json";
+    system_utils::Stream file_stream;
+
+    file_stream.open(js_file_path);
+    file_stream.read(buffer, file_stream.file_size());
+    WeJson js_file(buffer);
+
+    // 想个办法设置需要提交库文件和头文件
 }

@@ -21,8 +21,10 @@ using namespace std;
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__WIN32__) 
     #define __RJF_WINDOWS__
+    #define __STR_SYSTEM_NAME__     "Windows"
 #elif defined(__gnu_linux__) || defined(__linux__)
     #define __RJF_LINUX__
+    #define __STR_SYSTEM_NAME__     "Ubuntu"
 #endif
 
 #if defined(__RJF_LINUX__)
