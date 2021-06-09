@@ -338,12 +338,17 @@ Project::modify_config(void)
     js_value = config_["LibraryDirectoryListing"];
     cfg_values.push_back(js_value.value());
 
-    cfg_params.push_back("Import and export directory"); // 库和头文件导入导出目录
-    js_value = config_["ImportAndExportDirectory"];
-    cfg_values.push_back(js_value.value());
+    // 不需要直接从安装目录里读取路径
+    // cfg_params.push_back("Import and export directory"); // 库和头文件导入导出目录
+    // js_value = config_["ImportAndExportDirectory"];
+    // cfg_values.push_back(js_value.value());
 
     cfg_params.push_back("Associated project"); // 关联项目
     js_value = config_["AssociatedProject"];
+    cfg_values.push_back(js_value.value());
+
+    cfg_params.push_back("Push file"); // 关联项目
+    js_value = config_["PushFile"];
     cfg_values.push_back(js_value.value());
 
     cfg_params.push_back("Save");   // 库和头文件导入导出目录
@@ -671,7 +676,7 @@ Project::pull_file(void)
                 for (int i = 0; i < array.size(); ++i) {
                     JsonString pull_file = array[i];
                     string cmd = "rsync -r -u --delete ";
-                    cmd += include_path + "/" + proj_name.value() + "/" + pull_file.value() + " ";
+                    cmd += library_path + "/" + proj_name.value() + "/" + pull_file.value() + " ";
                     cmd += project_path_ + "/lib/" + compile_method.value() +"/" + pull_file.value();
                 }
             }
@@ -706,4 +711,21 @@ Project::push_file(void)
     WeJson js_file(buffer);
 
     // 想个办法设置需要提交库文件和头文件
+    JsonArray push_inc_file = config_["PushFile"]["include"]; // 提交头文件
+    for (int i = 0; i < push_inc_file.size(); ++i) {
+        JsonString push_file = push_inc_file[i];
+        string cmd = "rsync -r -u --delete ";
+        cmd += project_path_ + "/inc/" + push_file.value() + " ";
+        cmd += include_path + "/" + push_file.value();
+    }
+
+    JsonArray push_lib_file = config_["PushFile"]["library"];
+    for (int i = 0; i < push_lib_file.size(); ++i) {
+        JsonString push_file = push_inc_file[i];
+        string cmd = "rsync -r -u --delete ";
+        cmd += project_path_ + "/output/" + compile_method.value() + "/lib/" + push_file.value() + " ";
+        cmd += library_path + "/" + push_file.value();
+    }
+
+    return 0;
 }
