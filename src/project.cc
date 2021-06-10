@@ -6,6 +6,14 @@ Project::Project(void)
     :is_project_opened_(false), 
      name_("")
 {
+#ifdef __RJF_LINUX__
+    exe_shell_cmd(project_install_path_, "cat $HOME/.project_manager.ini");
+    string check_dir = "ls ";
+    check_dir += project_install_path_;
+
+    string result;
+    exe_shell_cmd(result, check_dir.c_str());
+#endif
 }
 
 Project::~Project(void)
@@ -298,14 +306,6 @@ Project::modify_config(void)
     js_value = config_["CurrentCompiler"];
     cfg_values.push_back(js_value.value());
 
-    // cfg_params.push_back("Add compiler"); // 添加编译器
-    // js_value = config_["AddCompiler"];
-    // cfg_values.push_back(js_value.value());
-
-    // cfg_params.push_back("List of available compilers");
-    // js_value = config_["ListOfAvailableCompilers"];
-    // cfg_values.push_back(js_value.value());
-
     cfg_params.push_back("Compilation method"); // Debug or Release
     js_value = config_["CompilationMethod"];
     cfg_values.push_back(js_value.value());
@@ -338,17 +338,12 @@ Project::modify_config(void)
     js_value = config_["LibraryDirectoryListing"];
     cfg_values.push_back(js_value.value());
 
-    // 不需要直接从安装目录里读取路径
-    // cfg_params.push_back("Import and export directory"); // 库和头文件导入导出目录
-    // js_value = config_["ImportAndExportDirectory"];
-    // cfg_values.push_back(js_value.value());
-
     cfg_params.push_back("Associated project"); // 关联项目
     js_value = config_["AssociatedProject"];
     cfg_values.push_back(js_value.value());
 
-    cfg_params.push_back("Push file"); // 关联项目
-    js_value = config_["PushFile"];
+    cfg_params.push_back("Export file"); // 当前项目需要共享的文件和目录
+    js_value = config_["ExportFile"];
     cfg_values.push_back(js_value.value());
 
     cfg_params.push_back("Save");   // 库和头文件导入导出目录
@@ -436,7 +431,7 @@ Project::modify_config(void)
             }
         } else if (value == "GenerateFileType") {
             vector<string> keys = {"1", "2", "3"};
-            vector<string> values = {"exe", "static", "share"};
+            vector<string> values = {"exe", "static_lib", "share_lib"};
 
             string type = _window.display_menu(keys, values);
             config_["GenerateFileType"] = type;
@@ -623,6 +618,94 @@ Project::modify_config(void)
                     break;
                 }
             }
+        } else if (value == "AssociatedProject") {
+            vector<string> keys = {"1", "2", "3", "4"}, values = {"View associated project", "Add associated project", "Remove associated project", "Exit"};
+            while (true) {
+                string operation = _window.display_menu(keys, values);
+                if (operation == "View associated project") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["AssociatedProject"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["AssociatedProject"][i];
+                        nums.push_back(name.value());
+                    }
+                    _window.display_menu(nums, list);
+                } else if (operation == "Add associated project") {
+                    string name;
+                    int ret = _window.get_input(name, "Input project name");
+                    if (ret == -1 || name == "") {
+                        continue;
+                    }
+                    config_["AssociatedProject"].add(name);
+                } else if (operation == "Remove associated project") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["AssociatedProject"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["AssociatedProject"][i];
+                        nums.push_back(name.value());
+                    }
+                    string del_name = _window.display_menu(nums, list);
+                    if (del_name == "") {
+                        continue;
+                    }
+
+                    string title = "Are you sure to delete ";
+                    bool is_delete = _window.message(title + del_name);
+                    for (int i = 0; i < config_["AssociatedProject"].size() && is_delete; ++i) {
+                        JsonString name = config_["AssociatedProject"][i];
+                        if (name.value() == del_name) {
+                            config_["AssociatedProject"].erase(i);
+                            continue;
+                        }
+                    }
+                } else if (operation == "Exit") {
+                    break;
+                }
+            }
+        } else if (value == "ExportFile") {
+            vector<string> keys = {"1", "2", "3", "4"}, values = {"View ExportFile", "Add ExportFile", "Remove ExportFile", "Exit"};
+            while (true) {
+                string operation = _window.display_menu(keys, values);
+                if (operation == "View ExportFile") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["ExportFile"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["ExportFile"][i];
+                        nums.push_back(name.value());
+                    }
+                    _window.display_menu(nums, list);
+                } else if (operation == "Add ExportFile") {
+                    string name;
+                    int ret = _window.get_input(name, "Input export file name");
+                    if (ret == -1 || name == "") {
+                        continue;
+                    }
+                    config_["ExportFile"].add(name);
+                } else if (operation == "Remove ExportFile") {
+                    vector<string> nums, list;
+                    for (int i = 0; i < config_["ExportFile"].size(); ++i) {
+                        nums.push_back(to_string(i+1));
+                        JsonString name = config_["ExportFile"][i];
+                        nums.push_back(name.value());
+                    }
+                    string del_name = _window.display_menu(nums, list);
+                    if (del_name == "") {
+                        continue;
+                    }
+
+                    string title = "Are you sure to delete ";
+                    bool is_delete = _window.message(title + del_name);
+                    for (int i = 0; i < config_["ExportFile"].size() && is_delete; ++i) {
+                        JsonString name = config_["ExportFile"][i];
+                        if (name.value() == del_name) {
+                            config_["ExportFile"].erase(i);
+                            continue;
+                        }
+                    }
+                } else if (operation == "Exit") {
+                    break;
+                }
+            }
         }
     }
 }
@@ -710,7 +793,6 @@ Project::push_file(void)
     file_stream.read(buffer, file_stream.file_size());
     WeJson js_file(buffer);
 
-    // 想个办法设置需要提交库文件和头文件
     JsonArray push_inc_file = config_["PushFile"]["include"]; // 提交头文件
     for (int i = 0; i < push_inc_file.size(); ++i) {
         JsonString push_file = push_inc_file[i];
