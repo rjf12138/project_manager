@@ -149,60 +149,51 @@ int Project::generate_project_config(string path)
 {
     string result;
     ByteBuffer buffer;
-    WeJson arr("[]");
+    WeJson arr("[]"), obj("{}");
     config_.parse("{}");
 
-    config_["project_name"] = name_;
-    config_["project_path"] = project_path_;
+    config_["Name"] = name_;
+    config_["Path"] = project_path_;
 
     exe_shell_cmd(result, "uuidgen | tr -d '\n'");
-    config_["project_uuid"] = result;
+    config_["UUID"] = result;
 
-    arr.parse("[]");
-    arr.add("./lib/debug/");
-    arr.add("./lib/release/");
-    arr.add("./output/debug/lib/");
-    arr.add("./output/release/lib/");
-    config_["library_dir"] = arr;
-    arr.clear();
+    // 根据 CompilationMethod 来选择
+    obj.add("ReleaseLibraryListing", arr);
+    obj.add("DebugLibraryListing", arr);
+    obj.add("ReleaseLibraryDirectory", arr);
+    obj.add("DebugLibraryDirectory", arr);
+    config_.add("ChooseLibrary", obj);
+    obj.clear();
 
     arr.parse("[]");
     arr.add("./src/");
     arr.add("./main/");
-    config_["src_dir"] = arr;
+    config_["SourceFileDirectoryListing"] = arr;
     arr.clear();
 
     arr.parse("[]");
     arr.add("./inc/");
-    config_["inc_dir"] = arr;
+    config_["HeaderFileDirectoryListing"] = arr;
     arr.clear();
 
+    // 编译选项
     arr.parse("[]");
-    arr.add("g++");
-    config_["ListOfAvailableCompilers"] = arr;
+    obj.add("CompilerName", "g++");
+    obj.add("DebugOption", "-O0 -Wall -g -ggdb -std=c++11");
+    obj.add("ReleaseOption", "-O2 -Wall -std=c++11");
+    arr.add(obj);
+    config_["ChooseCompiler"] = arr;
+    obj.clear();
     arr.clear();
 
-    config_["release_compile_option"] = "-O2 -Wall -std=c++11";
-    arr.parse("[]");
-    arr.add("gmock");
-    arr.add("gtest");
-    config_["release_link_library"] = arr;
-    arr.clear();
+    config_["CompilationMethod"] = "Debug";
+    config_["CurrentCompiler"] = "g++";
+    config_["CompilationParameters"] = "";
 
-    config_["debug_compile_option"] = "-O0 -Wall -g -ggdb -std=c++11";
-    arr.parse("[]");
-    arr.add("gmock_main");
-    arr.add("gtest_main");
-    config_["debug_link_library"] = arr;
-    arr.clear();
-
-    config_["CompilationMethod"] = "debug";
-    config_["program_run_arg"] = "";
-
-
-    config_["compiler"] = "g++";
-    config_["main_cpp_file"] = "";
-    config_["generate_file_type"] = "exe";
+    // 主文件和生成文件类型
+    config_["MainFileName"] = "";
+    config_["GenerateFileType"] = "exe";
 
     buffer.write_string(config_.format_json());
     system_utils::Stream project_config;
@@ -309,6 +300,7 @@ Project::modify_config(void)
     cfg_params.push_back("Compilation method"); // Debug or Release
     js_value = config_["CompilationMethod"];
     cfg_values.push_back(js_value.value());
+    string compile_method = js_value.value();
 
     cfg_params.push_back("Compilation parameters");
     js_value = config_["CompilationParameters"];
@@ -323,28 +315,22 @@ Project::modify_config(void)
     cfg_values.push_back(js_value.value());
 
     cfg_params.push_back("Library listing"); // 库列表
-    js_value = config_["LibraryListing"];
-    cfg_values.push_back(js_value.value());
-
-    cfg_params.push_back("Header file directory listing"); // 头文件目录列表
-    js_value = config_["HeaderFileDirectoryListing"];
-    cfg_values.push_back(js_value.value());
-
-    cfg_params.push_back("Source file directory listing"); // 源文件目录列表
-    js_value = config_["SourceFileDirectoryListing"];
-    cfg_values.push_back(js_value.value());
+    cfg_values.push_back("View");
 
     cfg_params.push_back("Library directory listing"); // 库目录列表
-    js_value = config_["LibraryDirectoryListing"];
-    cfg_values.push_back(js_value.value());
+    cfg_values.push_back("View");
 
+    cfg_params.push_back("Header file directory listing"); // 头文件目录列表
+    cfg_values.push_back("View");
+
+    cfg_params.push_back("Source file directory listing"); // 源文件目录列表
+    cfg_values.push_back("View");
+    
     cfg_params.push_back("Associated project"); // 关联项目
-    js_value = config_["AssociatedProject"];
-    cfg_values.push_back(js_value.value());
+    cfg_values.push_back("View");
 
     cfg_params.push_back("Export file"); // 当前项目需要共享的文件和目录
-    js_value = config_["ExportFile"];
-    cfg_values.push_back(js_value.value());
+    cfg_values.push_back("View");
 
     cfg_params.push_back("Save");   // 库和头文件导入导出目录
     js_value = config_["!@#$"];     // 随机定的保存字符串

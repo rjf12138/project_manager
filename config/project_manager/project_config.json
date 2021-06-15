@@ -15,16 +15,20 @@
 			"ReleaseOption":""
 		},
 	],
+	"ChooseLibrary":{
+		"ReleaseLibraryListing":[],
+		"DebugLibraryListing":[],
+		"ReleaseLibraryDirectory":[],
+		"DebugLibraryDirectory":[],
+	},
 	">CompilationMethod":"[Debug|Release]",
 	">CompilationParameters":"-g -std=c++11",
 	">GenerateFileType": "[exe|static_lib|share_lib]",
 	">MainFileName":"main.cc",
 	"&MainFileNameList":["main.cc", "test.cc"],
-	"LibraryListing":["a.lib", "b.lib", "c.lib"],
-	"HeaderFileDirectoryListing":["./inc", "~/include"],
-	"SourceFileDirectoryListing":["./src", "./src2"],
-	"LibraryDirectoryListing":["./lib1", "lib2"],
-	"AssociatedProject": ["proj1", "proj2"],
-	"ExportFile":["json.h", "ncurses"],
+	">HeaderFileDirectoryListing":["./inc", "~/include"],
+	">SourceFileDirectoryListing":["./src", "./src2"],
+	">AssociatedProject": ["proj1", "proj2"],
+	">ExportFile":["json.h", "ncurses"],
 
 }
