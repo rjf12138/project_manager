@@ -24,7 +24,7 @@ public:
     virtual ~ProjectWindow(void);
 
     /// 失败返回"", 主动输入路径返回 "-Input"
-    string display_menu(vector<string> proj_name, vector<string> proj_path);
+    std::pair<string, string> display_menu(vector<string> proj_name, vector<string> proj_path);
     /// 获取输入
     int get_input(string &ret, string title, string default_value = "");
     // 消息提示

@@ -11,7 +11,7 @@ ProjectWindow::~ProjectWindow(void)
     
 }
 
-string 
+std::pair<string, string> 
 ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
 {
     initscr();  // 以 curses 模式初始化终端
@@ -63,19 +63,22 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
     post_menu(project_menu);
     wrefresh(menu_window);
 
-    string curr_text;
+    std::pair<string, string> choose_value;
     while(true) // 回车键
     {   
         int ch = wgetch(menu_window);
         if (ch == Keyboard_Enter) { // 回车键退出
             if (project_menu->curitem->description.length == 0) {
-                curr_text = ProjWin_InputPath;
+                choose_value.second = ProjWin_InputPath;
+                choose_value.first = ProjWin_InputPath;
             } else {
-                curr_text = proj_path[project_menu->curitem->index]; // 返回项目路径
+                choose_value.second = proj_path[project_menu->curitem->index]; // 返回项目路径
+                choose_value.first = proj_name[project_menu->curitem->index];
             }
             break;
         } else if (ch == 'q') {
-            curr_text = "";
+            choose_value.second = "";
+            choose_value.first = "";
             break;
         }
 
@@ -103,7 +106,7 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
     }
     endwin();
     delete[] items;
-    return curr_text;
+    return choose_value;
 }
 
 int 

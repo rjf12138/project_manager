@@ -6,14 +6,6 @@ Project::Project(void)
     :is_project_opened_(false), 
      name_("")
 {
-#ifdef __RJF_LINUX__
-    exe_shell_cmd(project_install_path_, "cat $HOME/.project_manager.ini");
-    string check_dir = "ls ";
-    check_dir += project_install_path_;
-
-    string result;
-    exe_shell_cmd(result, check_dir.c_str());
-#endif
 }
 
 Project::~Project(void)
@@ -22,14 +14,29 @@ Project::~Project(void)
 }
 
 int 
+Project::init(void)
+{
+#ifdef __RJF_LINUX__
+    exe_shell_cmd(project_install_path_, "cat $HOME/.project_manager.ini");
+    project_install_path_[project_install_path_.length() - 1] = '/';//将最后的换行符赋值为空
+    if (access(project_install_path_.c_str(), 0) == -1) {
+        LOG_GLOBAL_ERROR("Init Failed: %s is not exists.", project_install_path_.c_str());
+        return -1;
+    }
+#endif
+    return 0;
+}
+
+int 
 Project::load_project(string project_path)
 {
-    LOG_GLOBAL_TRACE("Load_project: %s", project_path.c_str());
     bool is_new_project = false;
     ByteBuffer buffer;
     system_utils::Stream project_paths;
-    int ret = project_paths.open("./config/project_path.json");
+    string project_paths_config = project_install_path_ + "project_path.json";
+    int ret = project_paths.open(project_paths_config.c_str());
     if (ret == -1) {
+        LOG_GLOBAL_ERROR("Load project failed: Can't find config at %s", project_paths_config.c_str());
         return -1;
     }
     project_paths.read(buffer, project_paths.file_size());
@@ -40,16 +47,16 @@ Project::load_project(string project_path)
         project_install_path_ = js_proj_install_path.value();
 
         vector<string> names={"Input Project Path"}, paths = {""};
-        JsonString js_name = js_project_paths["recent_open_project"]["name"];
-        JsonString js_path = js_project_paths["recent_open_project"]["path"];
+        JsonString js_name = js_project_paths["RecentOpenProject"]["name"];
+        JsonString js_path = js_project_paths["RecentOpenProject"]["path"];
         names.push_back(js_name.value());
         paths.push_back(js_path.value());
         
-        auto iter = js_project_paths["project_paths"].begin();
-        auto iter_end = js_project_paths["project_paths"].end();
+        auto iter = js_project_paths["ProjectPaths"].begin();
+        auto iter_end = js_project_paths["ProjectPaths"].end();
         for (; iter != iter_end; ++iter) {
-            js_name = iter.second()["name"];
-            js_path = iter.second()["path"];
+            js_name = iter.second()["Name"];
+            js_path = iter.second()["Path"];
 
             if (js_path.value() == paths[1]) { // 最近打开过的项目，已经添加进去了，不用在加了
                 continue;
@@ -59,7 +66,7 @@ Project::load_project(string project_path)
             paths.push_back(js_path.value());
         }
 
-        project_path_ = _window.display_menu(names, paths);
+        project_path_ = _window.display_menu(names, paths).second;
         if (project_path_ == ProjWin_InputPath) { // 新添加的项目路径
             _window.get_input(project_path_, "Input new project path");
             is_new_project = true;
@@ -76,7 +83,7 @@ Project::load_project(string project_path)
         project_config.read(config_buf, project_config.file_size());
         config_.parse(config_buf);
 
-        JsonString name = config_["project_name"];
+        JsonString name = config_["Name"];
         name_ = name.value();
     } else {
         project_path_ = project_path;
@@ -85,21 +92,27 @@ Project::load_project(string project_path)
     
     if (is_new_project == true) {
         WeJson new_project("{}");
-        new_project["name"] = name_;
-        new_project["path"] = project_path_;
-        js_project_paths["project_paths"].add(new_project);
+        new_project["Name"] = name_;
+        new_project["Path"] = project_path_;
+        js_project_paths["ProjectPaths"].add(new_project);
     }
 
-    js_project_paths["recent_open_project"]["name"] = name_;
-    js_project_paths["recent_open_project"]["path"] = project_path_;
+    js_project_paths["RecentOpenProject"]["Name"] = name_;
+    js_project_paths["RecentOpenProject"]["Path"] = project_path_;
 
     buffer.clear();
     buffer.write_string(js_project_paths.format_json());
     project_paths.clear_file();
     project_paths.write(buffer, buffer.data_size());
 
-    is_project_opened_ = true;
     return 0;
+}
+
+int 
+Project::check_project_opened(void)
+{
+    string config_path = project_path_ + "/.proj_config/project_config.json";
+    return access(config_path.c_str(), 0);
 }
 
 int 
@@ -117,7 +130,15 @@ Project::create_project(void)
         return -1;
     }
 
-    project_path_ = project_path_ + "/" + name_;
+    if (access(project_path_.c_str(), 0) == -1) {
+        LOG_GLOBAL_ERROR("Input project path error: %s can't access!", project_path_.c_str());
+        return -1;
+    }
+
+    exe_shell_cmd(project_path_, "cd %s;pwd", project_path_.c_str()); // 获取项目创建的绝对路径
+    project_path_[project_path_.length() - 1] = '/'; // 最后面的换行符换成空字符
+    project_path_ = project_path_ + name_; // 获取项目路径
+
     string result;
     exe_shell_cmd(result, "mkdir %s/", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/config", project_path_.c_str());
@@ -159,12 +180,20 @@ int Project::generate_project_config(string path)
     config_["UUID"] = result;
 
     // 根据 CompilationMethod 来选择
-    obj.add("ReleaseLibraryListing", arr);
-    obj.add("DebugLibraryListing", arr);
-    obj.add("ReleaseLibraryDirectory", arr);
-    obj.add("DebugLibraryDirectory", arr);
-    config_.add("ChooseLibrary", obj);
+    arr.parse("[]");
+    obj.add("Release", arr);
+    obj.add("Debug", arr);
+    config_.add("LibraryListing", obj);
     obj.clear();
+    arr.clear();
+
+    arr.parse("[]");
+    obj.parse("{}");
+    obj.add("Release", arr);
+    obj.add("Debug", arr);
+    config_.add("LibraryDirectoryListing", obj);
+    obj.clear();
+    arr.clear();
 
     arr.parse("[]");
     arr.add("./src/");
@@ -179,6 +208,7 @@ int Project::generate_project_config(string path)
 
     // 编译选项
     arr.parse("[]");
+    obj.parse("{}");
     obj.add("CompilerName", "g++");
     obj.add("DebugOption", "-O0 -Wall -g -ggdb -std=c++11");
     obj.add("ReleaseOption", "-O2 -Wall -std=c++11");
@@ -278,7 +308,7 @@ Project::modify_config(void)
     vector<string> cfg_params;
     vector<string> cfg_values;
 
-    if (is_project_opened_ == false) {
+    if (this->check_project_opened() == -1) {
         LOG_GLOBAL_ERROR("No project has been loaded yet");
         return -1;
     }
@@ -333,16 +363,15 @@ Project::modify_config(void)
     cfg_values.push_back("View");
 
     cfg_params.push_back("Save");   // 库和头文件导入导出目录
-    js_value = config_["!@#$"];     // 随机定的保存字符串
-    cfg_values.push_back(js_value.value());
+    cfg_values.push_back("");
 
     while (true) {
-        string value = _window.display_menu(cfg_params, cfg_values);
+        string value = _window.display_menu(cfg_params, cfg_values).first;
         if (value == "") {
             break;
         }
 
-        if (value == "CurrentCompiler") {
+        if (value == "Current compiler") {
             while (true) {
                 vector<string> compiler_nums = {"1"};
                 vector<string> compiler_names = {"Add new compiler"};
@@ -353,7 +382,7 @@ Project::modify_config(void)
                     compiler_names.push_back(tmp_value.value());
                 }
 
-                string compiler_name = _window.display_menu(compiler_nums, compiler_names);
+                string compiler_name = _window.display_menu(compiler_nums, compiler_names).second;
                 if (compiler_name == "Add new compiler") {
                     WeJson new_compiler("{}");
                     string new_compiler_name;
@@ -388,10 +417,10 @@ Project::modify_config(void)
                     break;
                 }
             }
-        } else if (value == "CompilationMethod") {
+        } else if (value == "Compilation method") {
             vector<string> nums = {"1", "2"};
             vector<string> compile_method = {"Debug", "Release"};
-            string method = _window.display_menu(nums, compile_method);
+            string method = _window.display_menu(nums, compile_method).second;
             if (method == "") {
                 continue;
             }
@@ -408,37 +437,37 @@ Project::modify_config(void)
                     }
                 }
             }
-        } else if (value == "CompilationParameters") {
+        } else if (value == "Compilation parameters") {
             JsonString param = config_["CompilationParameters"];
             string ret_param;
             int ret = _window.get_input(ret_param, "Modify compile parameters", param.value());
             if (ret != -1) {
                 config_["CompilationParameters"] = ret_param;
             }
-        } else if (value == "GenerateFileType") {
+        } else if (value == "Generate file type") {
             vector<string> keys = {"1", "2", "3"};
             vector<string> values = {"exe", "static_lib", "share_lib"};
 
-            string type = _window.display_menu(keys, values);
+            string type = _window.display_menu(keys, values).second;
             config_["GenerateFileType"] = type;
-        } else if (value == "MainFileName") {
+        } else if (value == "Main file name") {
             vector<string> keys, values;
             for (int i = 0; i < config_["MainFileNameList"].size(); ++i) {
                 keys.push_back(to_string(i + 1));
                 JsonString main_filename = config_["MainFileNameList"][i];
                 values.push_back(main_filename.value());
             }
-            string main_filename = _window.display_menu(keys, values);
+            string main_filename = _window.display_menu(keys, values).second;
             config_["MainFileName"] = main_filename;
-        } else if (value == "LibraryListing") {
+        } else if (value == "Library listing") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View Libraries", "Add Library", "Remove Library", "Exit"};
             while (true) {
-                string operation = _window.display_menu(keys, values);
+                string operation = _window.display_menu(keys, values).second;
                 if (operation == "View Libraries") {
                     vector<string> nums, library_list;
-                    for (int i = 0; i < config_["LibraryListing"].size(); ++i) {
+                    for (int i = 0; i < config_["LibraryListing"][compile_method].size(); ++i) {
                         nums.push_back(to_string(i+1));
-                        JsonString name = config_["LibraryListing"][i];
+                        JsonString name = config_["LibraryListing"][compile_method][i];
                         nums.push_back(name.value());
                     }
                     _window.display_menu(nums, library_list);
@@ -451,31 +480,31 @@ Project::modify_config(void)
                     config_["LibraryListing"].add(library_name);
                 } else if (operation == "Remove Library") {
                     vector<string> nums, library_list;
-                    for (int i = 0; i < config_["LibraryListing"].size(); ++i) {
+                    for (int i = 0; i < config_["LibraryListing"][compile_method].size(); ++i) {
                         nums.push_back(to_string(i+1));
-                        JsonString name = config_["LibraryListing"][i];
+                        JsonString name = config_["LibraryListing"][compile_method][i];
                         nums.push_back(name.value());
                     }
-                    string library_name = _window.display_menu(nums, library_list);
+                    string library_name = _window.display_menu(nums, library_list).second;
                     if (library_name == "") {
                         continue;
                     }
 
                     string title = "Are you sure to delete ";
                     bool is_delete = _window.message(title + library_name);
-                    for (int i = 0; i < config_["LibraryListing"].size() && is_delete; ++i) {
-                        JsonString name = config_["LibraryListing"][i];
+                    for (int i = 0; i < config_["LibraryListing"][compile_method].size() && is_delete; ++i) {
+                        JsonString name = config_["LibraryListing"][compile_method][i];
                         if (name.value() == library_name) {
-                            config_["LibraryListing"].erase(i);
+                            config_["LibraryListing"][compile_method].erase(i);
                             continue;
                         }
                     }
                 }
             }
-        } else if (value == "HeaderFileDirectoryListing") {
+        } else if (value == "Header file directory listing") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View header directories", "Add header directory", "Remove header directory", "Exit"};
             while (true) {
-                string operation = _window.display_menu(keys, values);
+                string operation = _window.display_menu(keys, values).second;
                 if (operation == "View header directories") {
                     vector<string> nums, list;
                     for (int i = 0; i < config_["HeaderFileDirectoryListing"].size(); ++i) {
@@ -498,7 +527,7 @@ Project::modify_config(void)
                         JsonString name = config_["HeaderFileDirectoryListing"][i];
                         nums.push_back(name.value());
                     }
-                    string del_name = _window.display_menu(nums, list);
+                    string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
                         continue;
                     }
@@ -516,10 +545,10 @@ Project::modify_config(void)
                     break;
                 }
             }
-        } else if (value == "SourceFileDirectoryListing") {
+        } else if (value == "Source file directory listing") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View source directories", "Add source directory", "Remove source directory", "Exit"};
             while (true) {
-                string operation = _window.display_menu(keys, values);
+                string operation = _window.display_menu(keys, values).second;
                 if (operation == "View source directories") {
                     vector<string> nums, list;
                     for (int i = 0; i < config_["SourceFileDirectoryListing"].size(); ++i) {
@@ -542,7 +571,7 @@ Project::modify_config(void)
                         JsonString name = config_["SourceFileDirectoryListing"][i];
                         nums.push_back(name.value());
                     }
-                    string del_name = _window.display_menu(nums, list);
+                    string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
                         continue;
                     }
@@ -560,15 +589,15 @@ Project::modify_config(void)
                     break;
                 }
             }
-        } else if (value == "LibraryDirectoryListing") {
+        } else if (value == "Library directory listing") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View library directories", "Add library directory", "Remove library directory", "Exit"};
             while (true) {
-                string operation = _window.display_menu(keys, values);
+                string operation = _window.display_menu(keys, values).second;
                 if (operation == "View library directories") {
                     vector<string> nums, list;
-                    for (int i = 0; i < config_["LibraryDirectoryListing"].size(); ++i) {
+                    for (int i = 0; i < config_["LibraryDirectoryListing"][compile_method].size(); ++i) {
                         nums.push_back(to_string(i+1));
-                        JsonString name = config_["LibraryDirectoryListing"][i];
+                        JsonString name = config_["LibraryDirectoryListing"][compile_method][i];
                         nums.push_back(name.value());
                     }
                     _window.display_menu(nums, list);
@@ -578,25 +607,25 @@ Project::modify_config(void)
                     if (ret == -1 || name == "") {
                         continue;
                     }
-                    config_["LibraryDirectoryListing"].add(name);
+                    config_["Library directory listing"].add(name);
                 } else if (operation == "Remove library directory") {
                     vector<string> nums, list;
-                    for (int i = 0; i < config_["LibraryDirectoryListing"].size(); ++i) {
+                    for (int i = 0; i < config_["LibraryDirectoryListing"][compile_method].size(); ++i) {
                         nums.push_back(to_string(i+1));
-                        JsonString name = config_["LibraryDirectoryListing"][i];
+                        JsonString name = config_["LibraryDirectoryListing"][compile_method][i];
                         nums.push_back(name.value());
                     }
-                    string del_name = _window.display_menu(nums, list);
+                    string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
                         continue;
                     }
 
                     string title = "Are you sure to delete ";
                     bool is_delete = _window.message(title + del_name);
-                    for (int i = 0; i < config_["LibraryDirectoryListing"].size() && is_delete; ++i) {
-                        JsonString name = config_["LibraryDirectoryListing"][i];
+                    for (int i = 0; i < config_["LibraryDirectoryListing"][compile_method].size() && is_delete; ++i) {
+                        JsonString name = config_["LibraryDirectoryListing"][compile_method][i];
                         if (name.value() == del_name) {
-                            config_["LibraryDirectoryListing"].erase(i);
+                            config_["LibraryDirectoryListing"][compile_method].erase(i);
                             continue;
                         }
                     }
@@ -604,10 +633,10 @@ Project::modify_config(void)
                     break;
                 }
             }
-        } else if (value == "AssociatedProject") {
+        } else if (value == "Associated project") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View associated project", "Add associated project", "Remove associated project", "Exit"};
             while (true) {
-                string operation = _window.display_menu(keys, values);
+                string operation = _window.display_menu(keys, values).second;
                 if (operation == "View associated project") {
                     vector<string> nums, list;
                     for (int i = 0; i < config_["AssociatedProject"].size(); ++i) {
@@ -630,7 +659,7 @@ Project::modify_config(void)
                         JsonString name = config_["AssociatedProject"][i];
                         nums.push_back(name.value());
                     }
-                    string del_name = _window.display_menu(nums, list);
+                    string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
                         continue;
                     }
@@ -648,10 +677,10 @@ Project::modify_config(void)
                     break;
                 }
             }
-        } else if (value == "ExportFile") {
+        } else if (value == "Export file") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View ExportFile", "Add ExportFile", "Remove ExportFile", "Exit"};
             while (true) {
-                string operation = _window.display_menu(keys, values);
+                string operation = _window.display_menu(keys, values).second;
                 if (operation == "View ExportFile") {
                     vector<string> nums, list;
                     for (int i = 0; i < config_["ExportFile"].size(); ++i) {
@@ -674,7 +703,7 @@ Project::modify_config(void)
                         JsonString name = config_["ExportFile"][i];
                         nums.push_back(name.value());
                     }
-                    string del_name = _window.display_menu(nums, list);
+                    string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
                         continue;
                     }
@@ -692,8 +721,18 @@ Project::modify_config(void)
                     break;
                 }
             }
+        } else if (value == "Save") {
+            string project_config_path = project_path_ + "/.proj_config/project_config.json";
+            ByteBuffer buffer;
+            buffer.write_string(config_.format_json());
+            system_utils::Stream project_config;
+            project_config.open(project_config_path);
+            project_config.write(buffer, buffer.data_size());
+            break;
         }
     }
+
+    return 0;
 }
 
 
@@ -741,7 +780,7 @@ Project::pull_file(void)
                 }
 
                 // 同步库文件
-                JsonArray array = object["Library"];
+                array = object["Library"];
                 for (int i = 0; i < array.size(); ++i) {
                     JsonString pull_file = array[i];
                     string cmd = "rsync -r -u --delete ";
@@ -751,6 +790,8 @@ Project::pull_file(void)
             }
         }
     }
+
+    return 0;
 }
 
 int 

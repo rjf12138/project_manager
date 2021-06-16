@@ -12,8 +12,12 @@ public:
     Project(void);
     virtual ~Project(void);
 
+    int init(void);
+
     int load_project(string project_path = "");
     int create_project(void);
+    int check_project_opened(void);
+
     int modify_config(void);
 
     int generate_project_config(string path);

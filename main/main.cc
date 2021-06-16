@@ -25,8 +25,11 @@ int param_argv(int argc, char **argv);
 int main(int argc, char **argv)
 {
     Project proj;
-    
-    int ret = param_argv(argc, argv);
+    int ret = proj.init();
+    if (ret < 0) {
+        return 0;
+    }
+    ret = param_argv(argc, argv);
     switch (ret)
     {
         case PMO_Help:
@@ -57,6 +60,7 @@ int main(int argc, char **argv)
         } break;
         case PMO_ConfigureCFG:
         {
+            proj.modify_config();
             std::cout << "PMO_ConfigureCFG" << std::endl;
         } break;
         case PMO_RunProgram:

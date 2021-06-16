@@ -16,10 +16,12 @@
 		},
 	],
 	"ChooseLibrary":{
-		"ReleaseLibraryListing":[],
-		"DebugLibraryListing":[],
-		"ReleaseLibraryDirectory":[],
-		"DebugLibraryDirectory":[],
+		"Release":[],
+		"Debug":[],
+	},
+	"ChooseLibraryDirectory":{
+		"Release":[],
+		"Debug":[],
 	},
 	">CompilationMethod":"[Debug|Release]",
 	">CompilationParameters":"-g -std=c++11",
