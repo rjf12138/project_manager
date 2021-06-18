@@ -60,8 +60,8 @@ int main(int argc, char **argv)
         } break;
         case PMO_ConfigureCFG:
         {
-            proj.modify_config();
             std::cout << "PMO_ConfigureCFG" << std::endl;
+            proj.modify_config();
         } break;
         case PMO_RunProgram:
         {

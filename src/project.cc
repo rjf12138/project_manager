@@ -24,6 +24,36 @@ Project::init(void)
         return -1;
     }
 #endif
+    ByteBuffer buffer;
+    system_utils::Stream project_paths;
+    string project_paths_config = project_install_path_ + "project_path.json";
+    int ret = project_paths.open(project_paths_config.c_str());
+    if (ret == -1) {
+        LOG_GLOBAL_ERROR("Load project failed: Can't find config at %s", project_paths_config.c_str());
+        return -1;
+    }
+    project_paths.read(buffer, project_paths.file_size());
+    WeJson js_project_paths(buffer);
+    JsonString js_name = js_project_paths["RecentOpenProject"]["Name"];
+    JsonString js_path = js_project_paths["RecentOpenProject"]["Path"];
+    
+    string project_config_path = js_path.value() + "/.proj_config/project_config.json";
+    if (access(project_config_path.c_str(), 0) != -1) {
+        name_ = js_name.value();
+        project_path_ = js_path.value();
+        
+        ByteBuffer config_buf;
+        system_utils::Stream project_config;
+        string config_path = project_path_ + "/.proj_config/project_config.json";
+        ret = project_config.open(config_path);
+        if (ret == -1) {
+            LOG_GLOBAL_ERROR("Load project failed： Can not load project config: %s.", config_path.c_str());
+            return -1;
+        }
+        project_config.read(config_buf, project_config.file_size());
+        config_.parse(config_buf);
+    }
+
     return 0;
 }
 
@@ -43,12 +73,9 @@ Project::load_project(string project_path)
     WeJson js_project_paths(buffer);
     
     if (project_path == "") { // 参数为空则从缓存文件中读取
-        JsonString js_proj_install_path = js_project_paths["project_install_path"];
-        project_install_path_ = js_proj_install_path.value();
-
         vector<string> names={"Input Project Path"}, paths = {""};
-        JsonString js_name = js_project_paths["RecentOpenProject"]["name"];
-        JsonString js_path = js_project_paths["RecentOpenProject"]["path"];
+        JsonString js_name = js_project_paths["RecentOpenProject"]["Name"];
+        JsonString js_path = js_project_paths["RecentOpenProject"]["Path"];
         names.push_back(js_name.value());
         paths.push_back(js_path.value());
         
@@ -158,7 +185,7 @@ Project::create_project(void)
     exe_shell_cmd(result, "mkdir %s/output/release/lib", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/.proj_config", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/.vscode", project_path_.c_str());
-
+    
     string project_config_path = project_path_ + "/.proj_config/project_config.json";
     this->generate_project_config(project_config_path);
     this->load_project(project_path_);
@@ -181,16 +208,16 @@ int Project::generate_project_config(string path)
 
     // 根据 CompilationMethod 来选择
     arr.parse("[]");
-    obj.add("Release", arr);
-    obj.add("Debug", arr);
+    obj.add("release", arr);
+    obj.add("debug", arr);
     config_.add("LibraryListing", obj);
     obj.clear();
     arr.clear();
 
     arr.parse("[]");
     obj.parse("{}");
-    obj.add("Release", arr);
-    obj.add("Debug", arr);
+    obj.add("release", arr);
+    obj.add("debug", arr);
     config_.add("LibraryDirectoryListing", obj);
     obj.clear();
     arr.clear();
@@ -217,7 +244,7 @@ int Project::generate_project_config(string path)
     obj.clear();
     arr.clear();
 
-    config_["CompilationMethod"] = "Debug";
+    config_["CompilationMethod"] = "debug";
     config_["CurrentCompiler"] = "g++";
     config_["CompilationParameters"] = "";
 
@@ -307,64 +334,64 @@ Project::modify_config(void)
     JsonString js_value;
     vector<string> cfg_params;
     vector<string> cfg_values;
-
+LOG_GLOBAL_DEBUG("");
     if (this->check_project_opened() == -1) {
         LOG_GLOBAL_ERROR("No project has been loaded yet");
         return -1;
     }
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Name");
     cfg_values.push_back(name_);
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Path");
     cfg_values.push_back(project_path_);
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("UUID");
     js_value = config_["UUID"];
     cfg_values.push_back(js_value.value());
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Current compiler"); // 选择使用的编译器
     js_value = config_["CurrentCompiler"];
     cfg_values.push_back(js_value.value());
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Compilation method"); // Debug or Release
     js_value = config_["CompilationMethod"];
     cfg_values.push_back(js_value.value());
     string compile_method = js_value.value();
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Compilation parameters");
     js_value = config_["CompilationParameters"];
     cfg_values.push_back(js_value.value());
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Generate file type"); // share, static, exe
     js_value = config_["GenerateFileType"];
     cfg_values.push_back(js_value.value());
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Main file name"); // 主函数所在的文件名称
     js_value = config_["MainFileName"];
     cfg_values.push_back(js_value.value());
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Library listing"); // 库列表
     cfg_values.push_back("View");
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Library directory listing"); // 库目录列表
     cfg_values.push_back("View");
-
-    cfg_params.push_back("Header file directory listing"); // 头文件目录列表
+LOG_GLOBAL_DEBUG("");
+    cfg_params.push_back("Header directory listing"); // 头文件目录列表
     cfg_values.push_back("View");
-
-    cfg_params.push_back("Source file directory listing"); // 源文件目录列表
+LOG_GLOBAL_DEBUG("");
+    cfg_params.push_back("Source directory listing"); // 源文件目录列表
     cfg_values.push_back("View");
-    
+    LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Associated project"); // 关联项目
     cfg_values.push_back("View");
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Export file"); // 当前项目需要共享的文件和目录
     cfg_values.push_back("View");
-
+LOG_GLOBAL_DEBUG("");
     cfg_params.push_back("Save");   // 库和头文件导入导出目录
     cfg_values.push_back("");
-
+LOG_GLOBAL_DEBUG("");
     while (true) {
         string value = _window.display_menu(cfg_params, cfg_values).first;
         if (value == "") {
@@ -407,7 +434,7 @@ Project::modify_config(void)
                     for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
                         JsonString choose_compiler_name = config_["ChooseCompiler"][i]["CompilerName"];
                         if (choose_compiler_name.value() == compiler_name) {
-                            if (compile_method.value() == "Release") {
+                            if (compile_method.value() == "release") {
                                 config_["CompilationParameters"] = config_["ChooseCompiler"][i]["ReleaseOption"];
                             } else {
                                 config_["CompilationParameters"] = config_["ChooseCompiler"][i]["DebugOption"];
@@ -419,7 +446,7 @@ Project::modify_config(void)
             }
         } else if (value == "Compilation method") {
             vector<string> nums = {"1", "2"};
-            vector<string> compile_method = {"Debug", "Release"};
+            vector<string> compile_method = {"debug", "release"};
             string method = _window.display_menu(nums, compile_method).second;
             if (method == "") {
                 continue;
@@ -430,7 +457,7 @@ Project::modify_config(void)
             for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
                 JsonString choose_compiler_name = config_["ChooseCompiler"][i]["CompilerName"];
                 if (choose_compiler_name.value() == current_compile_name.value()) {
-                    if (method == "Release") {
+                    if (method == "release") {
                         config_["CompilationParameters"] = config_["ChooseCompiler"][i]["ReleaseOption"];
                     } else {
                         config_["CompilationParameters"] = config_["ChooseCompiler"][i]["DebugOption"];
@@ -501,7 +528,7 @@ Project::modify_config(void)
                     }
                 }
             }
-        } else if (value == "Header file directory listing") {
+        } else if (value == "Header directory listing") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View header directories", "Add header directory", "Remove header directory", "Exit"};
             while (true) {
                 string operation = _window.display_menu(keys, values).second;
@@ -545,7 +572,7 @@ Project::modify_config(void)
                     break;
                 }
             }
-        } else if (value == "Source file directory listing") {
+        } else if (value == "Source directory listing") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View source directories", "Add source directory", "Remove source directory", "Exit"};
             while (true) {
                 string operation = _window.display_menu(keys, values).second;
