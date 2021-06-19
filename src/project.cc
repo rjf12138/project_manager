@@ -72,6 +72,7 @@ Project::load_project(string project_path)
     project_paths.read(buffer, project_paths.file_size());
     WeJson js_project_paths(buffer);
     
+    config_.clear();
     if (project_path == "") { // 参数为空则从缓存文件中读取
         vector<string> names={"Input Project Path"}, paths = {""};
         JsonString js_name = js_project_paths["RecentOpenProject"]["Name"];
@@ -94,7 +95,7 @@ Project::load_project(string project_path)
         }
 
         project_path_ = _window.display_menu(names, paths).second;
-        if (project_path_ == ProjWin_InputPath) { // 新添加的项目路径
+        if (project_path_ == "") { // 新添加的项目路径
             _window.get_input(project_path_, "Input new project path");
             is_new_project = true;
         }
@@ -103,7 +104,7 @@ Project::load_project(string project_path)
         system_utils::Stream project_config;
         string config_path = project_path_ + "/.proj_config/project_config.json";
         ret = project_config.open(config_path);
-        if (ret == -1) {
+        if (ret == -1 || project_config.file_size() < 2) {
             LOG_GLOBAL_ERROR("Load project failed： Can not load project config: %s.", config_path.c_str());
             return -1;
         }
@@ -246,11 +247,16 @@ int Project::generate_project_config(string path)
 
     config_["CompilationMethod"] = "debug";
     config_["CurrentCompiler"] = "g++";
-    config_["CompilationParameters"] = "";
+    config_["CompilationParameters"] = "-O0 -Wall -g -ggdb -std=c++11";
 
     // 主文件和生成文件类型
     config_["MainFileName"] = "";
     config_["GenerateFileType"] = "exe";
+
+    // 关联项目
+    arr.parse("[]");
+    config_["AssociatedProject"] = arr;
+    config_["ExportFile"] = arr;
 
     buffer.write_string(config_.format_json());
     system_utils::Stream project_config;
@@ -334,65 +340,69 @@ Project::modify_config(void)
     JsonString js_value;
     vector<string> cfg_params;
     vector<string> cfg_values;
-LOG_GLOBAL_DEBUG("");
+
     if (this->check_project_opened() == -1) {
         LOG_GLOBAL_ERROR("No project has been loaded yet");
         return -1;
     }
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Name");
-    cfg_values.push_back(name_);
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Path");
-    cfg_values.push_back(project_path_);
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("UUID");
-    js_value = config_["UUID"];
-    cfg_values.push_back(js_value.value());
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Current compiler"); // 选择使用的编译器
-    js_value = config_["CurrentCompiler"];
-    cfg_values.push_back(js_value.value());
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Compilation method"); // Debug or Release
-    js_value = config_["CompilationMethod"];
-    cfg_values.push_back(js_value.value());
-    string compile_method = js_value.value();
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Compilation parameters");
-    js_value = config_["CompilationParameters"];
-    cfg_values.push_back(js_value.value());
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Generate file type"); // share, static, exe
-    js_value = config_["GenerateFileType"];
-    cfg_values.push_back(js_value.value());
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Main file name"); // 主函数所在的文件名称
-    js_value = config_["MainFileName"];
-    cfg_values.push_back(js_value.value());
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Library listing"); // 库列表
-    cfg_values.push_back("View");
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Library directory listing"); // 库目录列表
-    cfg_values.push_back("View");
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Header directory listing"); // 头文件目录列表
-    cfg_values.push_back("View");
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Source directory listing"); // 源文件目录列表
-    cfg_values.push_back("View");
-    LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Associated project"); // 关联项目
-    cfg_values.push_back("View");
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Export file"); // 当前项目需要共享的文件和目录
-    cfg_values.push_back("View");
-LOG_GLOBAL_DEBUG("");
-    cfg_params.push_back("Save");   // 库和头文件导入导出目录
-    cfg_values.push_back("");
-LOG_GLOBAL_DEBUG("");
+
     while (true) {
+        cfg_params.clear();
+        cfg_values.clear();
+
+        cfg_params.push_back("Name");   // 项目名称
+        cfg_values.push_back(name_);
+
+        cfg_params.push_back("Path");   // 项目路径
+        cfg_values.push_back(project_path_);
+
+        cfg_params.push_back("UUID");   // 项目UUID
+        js_value = config_["UUID"];
+        cfg_values.push_back(js_value.value());
+
+        cfg_params.push_back("Current compiler"); // 当前使用的编译器
+        js_value = config_["CurrentCompiler"];
+        cfg_values.push_back(js_value.value());
+
+        cfg_params.push_back("Compilation method"); // 编译方式 Debug or Release
+        js_value = config_["CompilationMethod"];
+        cfg_values.push_back(js_value.value());
+        string compile_method = js_value.value();
+
+        cfg_params.push_back("Compilation parameters"); // 当前编译器在当前编译方式下的编译参数
+        js_value = config_["CompilationParameters"];
+        cfg_values.push_back(js_value.value());
+
+        cfg_params.push_back("Generate file type"); // 生成的文件类型 share_lib, static_lib, exe
+        js_value = config_["GenerateFileType"];
+        cfg_values.push_back(js_value.value());
+
+        cfg_params.push_back("Main file name"); // 选择Main文件
+        js_value = config_["MainFileName"];
+        cfg_values.push_back(js_value.value());
+
+        cfg_params.push_back("Library listing"); // 库列表（取决于当前的编译方式: Debug or Release）
+        cfg_values.push_back("View");
+
+        cfg_params.push_back("Library directory listing"); // 库目录列表
+        cfg_values.push_back("View");
+
+        cfg_params.push_back("Header directory listing"); // 头文件目录列表
+        cfg_values.push_back("View");
+
+        cfg_params.push_back("Source directory listing"); // 源文件目录列表
+        cfg_values.push_back("View");
+        
+        cfg_params.push_back("Associated project"); // 关联项目
+        cfg_values.push_back("View");
+
+        cfg_params.push_back("Export header file"); // 当前项目需要共享的文件和目录
+        cfg_values.push_back("View");
+
+        cfg_params.push_back("Save");   // 库和头文件导入导出目录
+        cfg_values.push_back("");
+
+        // 显示参数列表
         string value = _window.display_menu(cfg_params, cfg_values).first;
         if (value == "") {
             break;
@@ -400,37 +410,37 @@ LOG_GLOBAL_DEBUG("");
 
         if (value == "Current compiler") {
             while (true) {
-                vector<string> compiler_nums = {"1"};
+                // 从 ChooseCompiler 中获取可用的编译器列表
+                vector<string> compiler_nums = {"1"}; 
                 vector<string> compiler_names = {"Add new compiler"};
                 for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
-                    compiler_nums.push_back(to_string(i + 2));
-
                     JsonString tmp_value = config_["ChooseCompiler"][i]["CompilerName"];
                     compiler_names.push_back(tmp_value.value());
+                    compiler_nums.push_back(to_string(i + 2));
                 }
 
                 string compiler_name = _window.display_menu(compiler_nums, compiler_names).second;
-                if (compiler_name == "Add new compiler") {
+                if (compiler_name == "Add new compiler") {  // 添加新的编译器
                     WeJson new_compiler("{}");
                     string new_compiler_name;
-                    _window.get_input(new_compiler_name, "New compiler Name");
+                    _window.get_input(new_compiler_name, "New compiler Name"); // 输入编译器名称
                     if (new_compiler_name == "") {
                         // 什么都不做回到编译器选择界面
                     } else {
                         new_compiler["CompilerName"] = new_compiler_name;
                         string new_compiler_option;
-                        _window.get_input(new_compiler_option, "New compiler debug option");
+                        _window.get_input(new_compiler_option, "New compiler debug option"); // 编译器Debug的编译参数
                         new_compiler["DebugOption"] = new_compiler_option;
 
-                        _window.get_input(new_compiler_option, "New compiler release option");
+                        _window.get_input(new_compiler_option, "New compiler release option");// 编译器Release的编译参数
                         new_compiler["ReleaseOption"] = new_compiler_option;
 
                         config_["ChooseCompiler"].add(new_compiler);
                     }
                 } else {
-                    config_["CurrentCompiler"] = compiler_name;
+                    config_["CurrentCompiler"] = compiler_name; // 从列表中选中编译器
                     JsonString compile_method = config_["CompilationMethod"];
-                    
+                    // 更新 CompilationParameters 的编译参数
                     for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
                         JsonString choose_compiler_name = config_["ChooseCompiler"][i]["CompilerName"];
                         if (choose_compiler_name.value() == compiler_name) {
@@ -444,7 +454,7 @@ LOG_GLOBAL_DEBUG("");
                     break;
                 }
             }
-        } else if (value == "Compilation method") {
+        } else if (value == "Compilation method") { // 编译方式 debug 或 release
             vector<string> nums = {"1", "2"};
             vector<string> compile_method = {"debug", "release"};
             string method = _window.display_menu(nums, compile_method).second;
@@ -452,7 +462,7 @@ LOG_GLOBAL_DEBUG("");
                 continue;
             }
             config_["CompilationMethod"] = method;
-            
+            // 根据选中的编译方式，更新 CompilationParameters 的编译参数
             JsonString current_compile_name = config_["CurrentCompiler"];
             for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
                 JsonString choose_compiler_name = config_["ChooseCompiler"][i]["CompilerName"];
@@ -464,59 +474,88 @@ LOG_GLOBAL_DEBUG("");
                     }
                 }
             }
-        } else if (value == "Compilation parameters") {
+        } else if (value == "Compilation parameters") { 
             JsonString param = config_["CompilationParameters"];
             string ret_param;
             int ret = _window.get_input(ret_param, "Modify compile parameters", param.value());
             if (ret != -1) {
                 config_["CompilationParameters"] = ret_param;
+                // 更新 ChooseCompiler 中当前编译器的编译参数
+                JsonString method = config_["CompilationMethod"];
+                JsonString current_compile_name = config_["CurrentCompiler"];
+                for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
+                    JsonString choose_compiler_name = config_["ChooseCompiler"][i]["CompilerName"];
+                    if (choose_compiler_name.value() == current_compile_name.value()) {
+                        if (method.value() == "release") {
+                            config_["ChooseCompiler"][i]["ReleaseOption"] = ret_param;
+                        } else {
+                            config_["ChooseCompiler"][i]["DebugOption"] = ret_param;
+                        }
+                    }
+                }
             }
-        } else if (value == "Generate file type") {
+        } else if (value == "Generate file type") { // 选择生成文件类型
             vector<string> keys = {"1", "2", "3"};
             vector<string> values = {"exe", "static_lib", "share_lib"};
 
             string type = _window.display_menu(keys, values).second;
             config_["GenerateFileType"] = type;
-        } else if (value == "Main file name") {
+        } else if (value == "Main file name") { // 选择程序入口文件
             vector<string> keys, values;
             for (int i = 0; i < config_["MainFileNameList"].size(); ++i) {
                 keys.push_back(to_string(i + 1));
                 JsonString main_filename = config_["MainFileNameList"][i];
                 values.push_back(main_filename.value());
             }
+
+            if (keys.size() == 0 && values.size() == 0) {
+                keys.push_back("None");
+                values.push_back("");
+            }
             string main_filename = _window.display_menu(keys, values).second;
-            config_["MainFileName"] = main_filename;
-        } else if (value == "Library listing") {
+            if (main_filename != "") {
+                config_["MainFileName"] = main_filename;
+            }
+        } else if (value == "Library listing") { // 库列表
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View Libraries", "Add Library", "Remove Library", "Exit"};
             while (true) {
                 string operation = _window.display_menu(keys, values).second;
-                if (operation == "View Libraries") {
+                if (operation == "View Libraries") { // 查看已经添加的库
                     vector<string> nums, library_list;
                     for (int i = 0; i < config_["LibraryListing"][compile_method].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["LibraryListing"][compile_method][i];
-                        nums.push_back(name.value());
+                        library_list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && library_list.size() == 0) { // 没有库时显示 None
+                        nums.push_back("None");
+                        library_list.push_back("");
                     }
                     _window.display_menu(nums, library_list);
-                } else if (operation == "Add Library") {
+                } else if (operation == "Add Library") { // 添加库
                     string library_name;
                     int ret = _window.get_input(library_name, "Input Library name");
                     if (ret == -1 || library_name == "") {
                         continue;
                     }
-                    config_["LibraryListing"].add(library_name);
-                } else if (operation == "Remove Library") {
+                    config_["LibraryListing"][compile_method].add(library_name);
+                } else if (operation == "Remove Library") { // 删除库
                     vector<string> nums, library_list;
                     for (int i = 0; i < config_["LibraryListing"][compile_method].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["LibraryListing"][compile_method][i];
-                        nums.push_back(name.value());
+                        library_list.push_back(name.value());
                     }
+
+                    if (nums.size() == 0 && library_list.size() == 0) {
+                        nums.push_back("None");
+                        library_list.push_back("");
+                    }
+
                     string library_name = _window.display_menu(nums, library_list).second;
                     if (library_name == "") {
                         continue;
                     }
-
                     string title = "Are you sure to delete ";
                     bool is_delete = _window.message(title + library_name);
                     for (int i = 0; i < config_["LibraryListing"][compile_method].size() && is_delete; ++i) {
@@ -526,6 +565,8 @@ LOG_GLOBAL_DEBUG("");
                             continue;
                         }
                     }
+                } else if (operation == "Exit") { // 退出
+                    break;
                 }
             }
         } else if (value == "Header directory listing") {
@@ -537,7 +578,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["HeaderFileDirectoryListing"].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["HeaderFileDirectoryListing"][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     _window.display_menu(nums, list);
                 } else if (operation == "Add header directory") {
@@ -552,7 +597,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["HeaderFileDirectoryListing"].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["HeaderFileDirectoryListing"][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
@@ -581,7 +630,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["SourceFileDirectoryListing"].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["SourceFileDirectoryListing"][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     _window.display_menu(nums, list);
                 } else if (operation == "Add source directory") {
@@ -596,7 +649,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["SourceFileDirectoryListing"].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["SourceFileDirectoryListing"][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
@@ -625,7 +682,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["LibraryDirectoryListing"][compile_method].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["LibraryDirectoryListing"][compile_method][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     _window.display_menu(nums, list);
                 } else if (operation == "Add library directory") {
@@ -634,13 +695,17 @@ LOG_GLOBAL_DEBUG("");
                     if (ret == -1 || name == "") {
                         continue;
                     }
-                    config_["Library directory listing"].add(name);
+                    config_["LibraryDirectoryListing"][compile_method].add(name);
                 } else if (operation == "Remove library directory") {
                     vector<string> nums, list;
                     for (int i = 0; i < config_["LibraryDirectoryListing"][compile_method].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["LibraryDirectoryListing"][compile_method][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
@@ -669,7 +734,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["AssociatedProject"].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["AssociatedProject"][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     _window.display_menu(nums, list);
                 } else if (operation == "Add associated project") {
@@ -684,7 +753,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["AssociatedProject"].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["AssociatedProject"][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {
@@ -704,7 +777,7 @@ LOG_GLOBAL_DEBUG("");
                     break;
                 }
             }
-        } else if (value == "Export file") {
+        } else if (value == "Export header file") {
             vector<string> keys = {"1", "2", "3", "4"}, values = {"View ExportFile", "Add ExportFile", "Remove ExportFile", "Exit"};
             while (true) {
                 string operation = _window.display_menu(keys, values).second;
@@ -713,7 +786,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["ExportFile"].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["ExportFile"][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     _window.display_menu(nums, list);
                 } else if (operation == "Add ExportFile") {
@@ -728,7 +805,11 @@ LOG_GLOBAL_DEBUG("");
                     for (int i = 0; i < config_["ExportFile"].size(); ++i) {
                         nums.push_back(to_string(i+1));
                         JsonString name = config_["ExportFile"][i];
-                        nums.push_back(name.value());
+                        list.push_back(name.value());
+                    }
+                    if (nums.size() == 0 && list.size() == 0) {
+                        nums.push_back("None");
+                        list.push_back("");
                     }
                     string del_name = _window.display_menu(nums, list).second;
                     if (del_name == "") {

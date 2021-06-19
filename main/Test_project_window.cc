@@ -40,6 +40,9 @@ vector<string> proj_path = {
 
 int main(void)
 {
+    proj_name.clear();
+    proj_path.clear();
+    
     ProjectWindow pw;
     string ret = pw.display_menu(proj_name, proj_path).second;
     cout << ret << endl;

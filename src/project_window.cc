@@ -14,6 +14,10 @@ ProjectWindow::~ProjectWindow(void)
 std::pair<string, string> 
 ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
 {
+    std::pair<string, string> choose_value;
+    if (proj_path.size() == 0 || proj_path.size() != proj_name.size()) {
+        return choose_value;
+    }
     initscr();  // 以 curses 模式初始化终端
     start_color();
     cbreak();   // 当缓存中有数据可读时直接返回而不是等到换行符或是缓冲满了才返回
@@ -24,9 +28,9 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
 
     vector<string> display_paths;
     for (std::size_t i = 0; i < proj_path.size(); ++i) {
-        int32_t path_start = static_cast<int32_t>(proj_path[i].length()) - 48;
+        int32_t path_start = static_cast<int32_t>(proj_path[i].length()) - 40;
         if (path_start > 0) { // 路径过长只显示后面一部分
-            std::string path = ".../";
+            std::string path = "...";
             path.append(proj_path[i].c_str() + path_start);
             display_paths.push_back(path);
         } else {
@@ -55,7 +59,7 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
 
     /* Print a border around the main window and print a title */
     box(menu_window, 0, 0);
-    this->print_in_middle(menu_window, 1, 0, 79, "Open Project(press 'q' to quit)", COLOR_PAIR(1));
+    this->print_in_middle(menu_window, 1, 0, 79, "Open Project(press 'q or Q' to quit)", COLOR_PAIR(1));
     mvwaddch(menu_window, 2, 0, ACS_LTEE);
     mvwhline(menu_window, 2, 1, ACS_HLINE, 77);
     mvwaddch(menu_window, 2, 78, ACS_RTEE);
@@ -63,20 +67,14 @@ ProjectWindow::display_menu(vector<string> proj_name, vector<string> proj_path)
     post_menu(project_menu);
     wrefresh(menu_window);
 
-    std::pair<string, string> choose_value;
     while(true) // 回车键
     {   
         int ch = wgetch(menu_window);
         if (ch == Keyboard_Enter) { // 回车键退出
-            if (project_menu->curitem->description.length == 0) {
-                choose_value.second = ProjWin_InputPath;
-                choose_value.first = ProjWin_InputPath;
-            } else {
-                choose_value.second = proj_path[project_menu->curitem->index]; // 返回项目路径
-                choose_value.first = proj_name[project_menu->curitem->index];
-            }
+            choose_value.second = proj_path[project_menu->curitem->index]; // 返回项目路径
+            choose_value.first = proj_name[project_menu->curitem->index];
             break;
-        } else if (ch == 'q') {
+        } else if (ch == 'q' || ch == 'Q') {
             choose_value.second = "";
             choose_value.first = "";
             break;
@@ -178,9 +176,11 @@ ProjectWindow::get_input(string &input, string title, string default_value)
                 break;
             } else if (my_form->current == field[3]) {
                 ret_status = -1;
+                break;
             }
         } else if (ch == Keyboard_Esc) {
             ret_status = -1;
+            break;
         }
         // 打印输入字符
 
