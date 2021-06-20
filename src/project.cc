@@ -33,9 +33,9 @@ Project::init(void)
         return -1;
     }
     project_paths.read(buffer, project_paths.file_size());
-    WeJson js_project_paths(buffer);
-    JsonString js_name = js_project_paths["RecentOpenProject"]["Name"];
-    JsonString js_path = js_project_paths["RecentOpenProject"]["Path"];
+    project_info_.parse(buffer);
+    JsonString js_name = project_info_["RecentOpenProject"]["Name"];
+    JsonString js_path = project_info_["RecentOpenProject"]["Path"];
     
     string project_config_path = js_path.value() + "/.proj_config/project_config.json";
     if (access(project_config_path.c_str(), 0) != -1) {
@@ -70,34 +70,78 @@ Project::load_project(string project_path)
         return -1;
     }
     project_paths.read(buffer, project_paths.file_size());
-    WeJson js_project_paths(buffer);
+    WeJson project_info_(buffer);
     
     config_.clear();
     if (project_path == "") { // 参数为空则从缓存文件中读取
-        vector<string> names={"Input Project Path"}, paths = {""};
-        JsonString js_name = js_project_paths["RecentOpenProject"]["Name"];
-        JsonString js_path = js_project_paths["RecentOpenProject"]["Path"];
-        names.push_back(js_name.value());
-        paths.push_back(js_path.value());
-        
-        auto iter = js_project_paths["ProjectPaths"].begin();
-        auto iter_end = js_project_paths["ProjectPaths"].end();
-        for (; iter != iter_end; ++iter) {
-            js_name = iter.second()["Name"];
-            js_path = iter.second()["Path"];
+        while (true) {
+            vector<string> names={"Input Project Path"}, paths = {""};
+            JsonString js_recent_proj_name = project_info_["RecentOpenProject"]["Name"];
+            JsonString js_recent_proj_path = project_info_["RecentOpenProject"]["Path"];
+            names.push_back(""); // 占位置
+            paths.push_back(""); // 占位置
 
-            if (js_path.value() == paths[1]) { // 最近打开过的项目，已经添加进去了，不用在加了
-                continue;
+            vector<string> remove_proj;
+            auto iter = project_info_["ProjectPaths"].begin();
+            auto iter_end = project_info_["ProjectPaths"].end();
+            for (; iter != iter_end; ++iter) {
+                JsonString js_name = iter.second()["Name"];
+                JsonString js_path = iter.second()["Path"];
+
+                if (access(js_path.value().c_str(), 0) != -1) {
+                    if (js_path.value() == js_recent_proj_path.value()) { // 最近打开过的项目，已经添加进去了，不用在加了
+                        names[1] = js_recent_proj_name.value();
+                        paths[1] = js_recent_proj_path.value();
+                        continue;
+                    }
+                    names.push_back(js_name.value());
+                    paths.push_back(js_path.value());
+                } else {
+                    remove_proj.push_back(js_name.value().c_str());
+                }
             }
 
-            names.push_back(js_name.value());
-            paths.push_back(js_path.value());
-        }
+            if (names[1] == "") { // 最近没有打开项目或是最近打开的项目移除了,用最后一个来填充
+                if (names.size() > 2) {
+                    names[1] = names[names.size() - 1];
+                    paths[1] = paths[paths.size() - 1];
+                    names[names.size() - 1] = "";
+                    paths[paths.size() - 1] = "";
+                }
+            }
 
-        project_path_ = _window.display_menu(names, paths).second;
-        if (project_path_ == "") { // 新添加的项目路径
-            _window.get_input(project_path_, "Input new project path");
-            is_new_project = true;
+            // 清除不存在的项目
+            for (std::size_t j = 0; j < remove_proj.size(); ++j) {
+                for (int i = 0; i < project_info_["ProjectPaths"].size(); ++i) {
+                    JsonString name = project_info_["ProjectPaths"][i]["Name"];
+                    if (name.value() == remove_proj[j]) {
+                        project_info_["ProjectPaths"].erase(i);
+                    }
+                }
+            }
+
+            if (remove_proj.size() > 0) {
+                buffer.clear();
+                buffer.write_string(project_info_.format_json());
+                project_paths.clear_file();
+                project_paths.write(buffer, buffer.data_size());
+            }
+
+            std::pair<string, string> ret = _window.display_menu(names, paths);
+            project_path_ = ret.second;
+            if (ret.first == "Input Project Path") { // 新添加的项目路径
+                if (_window.get_input(project_path_, "Input new project path") != -1 && project_path_ != "") {
+                    is_new_project = true;
+                    break;
+                } else {
+                    LOG_GLOBAL_INFO("Load project: Cancel project loading");
+                    continue;
+                }
+            } else if (ret.first == "") { // 取消加载项目
+                return  -1;
+            } else {
+                break;
+            }
         }
 
         ByteBuffer config_buf;
@@ -119,17 +163,25 @@ Project::load_project(string project_path)
     }
     
     if (is_new_project == true) {
+        for (int i = 0; i < project_info_["ProjectPaths"].size(); ++i) { // 检查同名项目是否存在
+            JsonString js_name = project_info_["ProjectPaths"][i]["Name"];
+            if (js_name.value() == name_) {
+                LOG_GLOBAL_ERROR("Load project failed: An project with the same name already exists![name: %s]", name_.c_str());
+                return -1;
+            }
+        }
+
         WeJson new_project("{}");
         new_project["Name"] = name_;
         new_project["Path"] = project_path_;
-        js_project_paths["ProjectPaths"].add(new_project);
+        project_info_["ProjectPaths"].add(new_project);
     }
 
-    js_project_paths["RecentOpenProject"]["Name"] = name_;
-    js_project_paths["RecentOpenProject"]["Path"] = project_path_;
+    project_info_["RecentOpenProject"]["Name"] = name_;
+    project_info_["RecentOpenProject"]["Path"] = project_path_;
 
     buffer.clear();
-    buffer.write_string(js_project_paths.format_json());
+    buffer.write_string(project_info_.format_json());
     project_paths.clear_file();
     project_paths.write(buffer, buffer.data_size());
 
@@ -152,6 +204,14 @@ Project::create_project(void)
         return -1;
     }
 
+    for (int i = 0; i < project_info_["ProjectPaths"].size(); ++i) { // 检查同名项目是否存在
+        JsonString js_name = project_info_["ProjectPaths"][i]["Name"];
+        if (js_name.value() == name_) {
+            LOG_GLOBAL_ERROR("Create project failed: An project with the same name already exists![name: %s]", name_.c_str());
+            return -1;
+        }
+    }
+
     _window.get_input(project_path_, "The new project is located at");
     if (project_path_ == "") {
         LOG_GLOBAL_ERROR("Project path can't be empty");
@@ -166,6 +226,11 @@ Project::create_project(void)
     exe_shell_cmd(project_path_, "cd %s;pwd", project_path_.c_str()); // 获取项目创建的绝对路径
     project_path_[project_path_.length() - 1] = '/'; // 最后面的换行符换成空字符
     project_path_ = project_path_ + name_; // 获取项目路径
+    // 检查项目的目录是不是早就存在
+    if (access(project_path_.c_str(), 0) != -1) {
+        LOG_GLOBAL_ERROR("Input project path error: The project directory already exists [%s] ", project_path_.c_str());
+        return -1;
+    }
 
     string result;
     exe_shell_cmd(result, "mkdir %s/", project_path_.c_str());

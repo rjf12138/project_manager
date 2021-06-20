@@ -36,6 +36,7 @@ private:
     string output_lib_path_;
 
     WeJson config_;
+    WeJson project_info_;
     ProjectWindow _window;
 };
 
