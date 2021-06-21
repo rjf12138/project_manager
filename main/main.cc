@@ -16,7 +16,10 @@ enum ProjectManagerOperate {
     PMO_NewTerminter,
     PM0_PrintProjectName,
     PMO_AddRemoteGitAddr,
-    PMO_PushToGithub
+    PMO_PushToGithub,
+    PMO_PullFromGithub,
+    PMO_PushToLocal,
+    PMO_PullFromLocal
 };
 
 void print_help(void);

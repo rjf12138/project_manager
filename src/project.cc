@@ -109,7 +109,7 @@ Project::load_project(string project_path)
                     paths[paths.size() - 1] = "";
                 }
             }
-
+            
             // 清除不存在的项目
             for (std::size_t j = 0; j < remove_proj.size(); ++j) {
                 for (int i = 0; i < project_info_["ProjectPaths"].size(); ++i) {
@@ -131,6 +131,8 @@ Project::load_project(string project_path)
             project_path_ = ret.second;
             if (ret.first == "Input Project Path") { // 新添加的项目路径
                 if (_window.get_input(project_path_, "Input new project path") != -1 && project_path_ != "") {
+                    exe_shell_cmd(project_path_, "cd %s;pwd", project_path_.c_str());// 获取绝对路径
+                    project_path_[project_path_.length() - 1] = '/';
                     is_new_project = true;
                     break;
                 } else {
@@ -152,6 +154,7 @@ Project::load_project(string project_path)
             LOG_GLOBAL_ERROR("Load project failed： Can not load project config: %s.", config_path.c_str());
             return -1;
         }
+        
         project_config.read(config_buf, project_config.file_size());
         config_.parse(config_buf);
 
