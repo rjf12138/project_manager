@@ -243,7 +243,8 @@ Project::create_project(void)
     exe_shell_cmd(result, "mkdir %s/", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/config", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/doc", project_path_.c_str());
-    exe_shell_cmd(result, "mkdir %s/inc", project_path_.c_str());
+    exe_shell_cmd(result, "mkdir %s/extern_inc", project_path_.c_str()); // 第三方库头文件目录
+    exe_shell_cmd(result, "mkdir %s/inc", project_path_.c_str()); // 本项目创建的头文件目录
     exe_shell_cmd(result, "mkdir %s/lib", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/lib/debug", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/lib/release", project_path_.c_str());
