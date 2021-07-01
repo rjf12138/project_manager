@@ -154,12 +154,16 @@ Project::load_project(string project_path)
             LOG_GLOBAL_ERROR("Load project failed： Can not load project config: %s.", config_path.c_str());
             return -1;
         }
-        
+
         project_config.read(config_buf, project_config.file_size());
         config_.parse(config_buf);
 
         JsonString name = config_["Name"];
         name_ = name.value();
+
+        JsonString method = config_["CompilationMethod"];
+        output_bin_path_ = project_path_ + "/output/" + method.value() + "/bin";
+        output_lib_path_ = project_path_ + "/output/" + method.value() + "/lib";
     } else {
         project_path_ = project_path;
         is_new_project = true;
@@ -363,7 +367,7 @@ Project::generate_vscode_config(string path)
     exe_shell_cmd(result, "echo \"    }\"                                                            >> %s/tasks.json", path.c_str());
 
     JsonString program_arg = config_["program_run_arg"];
-    JsonString program_main_file = config_["main_cpp_file"];
+    JsonString program_main_file = config_["MainFileName"];
     exe_shell_cmd(result, "echo \"{\"                                                                > %s/launch.json", path.c_str());
     exe_shell_cmd(result, "echo \"   // Use IntelliSense to learn about possible attributes.\"       >> %s/launch.json", path.c_str());
     exe_shell_cmd(result, "echo \"   // Hover to view descriptions of existing attributes.\"         >> %s/launch.json", path.c_str());
@@ -443,6 +447,10 @@ Project::modify_config(void)
 
         cfg_params.push_back("Generate file type"); // 生成的文件类型 share_lib, static_lib, exe
         js_value = config_["GenerateFileType"];
+        cfg_values.push_back(js_value.value());
+
+        cfg_params.push_back("Program run args"); // 选择Main文件
+        js_value = config_["ProgramRunArgs"];
         cfg_values.push_back(js_value.value());
 
         cfg_params.push_back("Main file name"); // 选择Main文件
@@ -530,6 +538,9 @@ Project::modify_config(void)
                 continue;
             }
             config_["CompilationMethod"] = method;
+            // 更新程序输出路径
+            output_bin_path_ = project_path_ + "/output/" + method + "/bin";
+            output_lib_path_ = project_path_ + "/output/" + method + "/lib";
             // 根据选中的编译方式，更新 CompilationParameters 的编译参数
             JsonString current_compile_name = config_["CurrentCompiler"];
             for (int i = 0; i < config_["ChooseCompiler"].size(); ++i) {
@@ -568,6 +579,10 @@ Project::modify_config(void)
 
             string type = _window.display_menu(keys, values).second;
             config_["GenerateFileType"] = type;
+        } else if (value == "Program run args") {
+            string ret;
+            _window.get_input(ret, "Program run args");
+            config_["ProgramRunArgs"] = ret;
         } else if (value == "Main file name") { // 选择程序入口文件
             vector<string> keys, values;
             for (int i = 0; i < config_["MainFileNameList"].size(); ++i) {
