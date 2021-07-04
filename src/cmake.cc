@@ -131,3 +131,59 @@ int CMake::create_sub_cmakefile(string sub_module_path, string module_name)
 
     return 0;
 }
+
+int CMake::clean_project(void)
+{
+    if (access("./boot/vmlinuz", 0) == F_OK){
+        LOG_GLOBAL_ERROR("Current dir is root.");
+        return -1;
+    }
+
+    string result;
+    exe_shell_cmd(result, "rm -rf ./output/release/bin/*");
+    exe_shell_cmd(result, "rm -rf ./output/release/lib/*");
+    exe_shell_cmd(result, "rm -rf ./output/debug/bin/*");
+    exe_shell_cmd(result, "rm -rf ./output/debug/lib/*");
+    exe_shell_cmd(result, "rm -rf ./build/");
+
+    return 0;
+}
+
+int CMake::build_project(bool rebuild)
+{
+    if (access("./boot/vmlinuz", 0) == F_OK){
+        LOG_GLOBAL_ERROR("Current dir is root.");
+        return -1;
+    }
+
+    if (rebuild == true) {
+        if (clean_project() >= 0) {
+            return -1;
+        }
+    }
+
+    string result;
+    if (access("./build", 0) != F_OK) {
+        exe_shell_cmd(result, "mkdir ./build");
+    }
+    chdir("./build");
+
+    JsonString compile_method = (*proj_config_)["CompilationMethod"];
+    if (compile_method.value() == "release") {
+        exe_shell_cmd(result, "cmake -DCMAKE_BUILD_TYPE=Release ..");
+    } else {
+        exe_shell_cmd(result, "cmake -DCMAKE_BUILD_TYPE=Debug ..");
+    }
+    exe_shell_cmd(result, "cmake --build .");
+
+    chdir(project_path_.c_str()); // 切回项目目录下
+    
+    // 拷贝配置文件
+    if (compile_method.value() == "release") {
+        exe_shell_cmd(result, "cp -rf ./config/ ./output/release/bin");
+    } else {
+        exe_shell_cmd(result, "cp -rf ./config/ ./output/debug/bin");
+    }
+
+    return 0;
+}

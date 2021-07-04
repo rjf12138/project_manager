@@ -1,5 +1,6 @@
 #include "basic_head.h"
 #include "project.h"
+#include "cmake.h"
 
 enum ProjectManagerOperate {
     PMO_Unknown = -1,
@@ -19,7 +20,8 @@ enum ProjectManagerOperate {
     PMO_PushToGithub,
     PMO_PullFromGithub,
     PMO_PushToLocal,
-    PMO_PullFromLocal
+    PMO_PullFromLocal,
+    PMO_CreateTmpProject
 };
 
 void print_help(void);
@@ -59,6 +61,9 @@ int main(int argc, char **argv)
         } break;
         case PMO_Rebulid:
         {
+            CMake cmake(proj);
+            cmake.create_top_level_cmakefile();
+            cmake.build_project(true);
             std::cout << "PMO_Rebulid" << std::endl;
         } break;
         case PMO_ConfigureCFG:
