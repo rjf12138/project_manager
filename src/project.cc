@@ -52,6 +52,8 @@ Project::init(void)
         }
         project_config.read(config_buf, project_config.file_size());
         config_.parse(config_buf);
+        is_project_opened_ = true;
+        chdir(project_path_.c_str());
     }
 
     return 0;
@@ -183,7 +185,7 @@ Project::load_project(string project_path)
         new_project["Path"] = project_path_;
         project_info_["ProjectPaths"].add(new_project);
     }
-
+    
     project_info_["RecentOpenProject"]["Name"] = name_;
     project_info_["RecentOpenProject"]["Path"] = project_path_;
 
@@ -297,13 +299,13 @@ int Project::generate_project_config(string path)
     arr.clear();
 
     arr.parse("[]");
-    arr.add("./src/");
-    arr.add("./main/");
+    // arr.add("./src/");
+    // arr.add("./main/");
     config_["SourceFileDirectoryListing"] = arr;
     arr.clear();
 
     arr.parse("[]");
-    arr.add("./inc/");
+    // arr.add("./inc/");
     config_["HeaderFileDirectoryListing"] = arr;
     arr.clear();
 
@@ -325,6 +327,7 @@ int Project::generate_project_config(string path)
     // 主文件和生成文件类型
     config_["MainFileName"] = "";
     config_["GenerateFileType"] = "exe";
+    config_["ProgramRunArgs"] = "";
 
     // 关联项目
     arr.parse("[]");
@@ -586,16 +589,21 @@ Project::modify_config(void)
             config_["ProgramRunArgs"] = ret;
         } else if (value == "Main file name") { // 选择程序入口文件
             vector<string> keys, values;
-            for (int i = 0; i < config_["MainFileNameList"].size(); ++i) {
+            string result;
+            exe_shell_cmd(result, "cd ./main; ls *.cc | sed 's/ /\n/g'");
+            LOG_GLOBAL_DEBUG("%s", result.c_str());
+            ByteBuffer buffer(result);
+            vector<ByteBuffer> buffer_values = buffer.split(ByteBuffer("\n"));
+            for (std::size_t i = 0; i < buffer_values.size(); ++i) {
                 keys.push_back(to_string(i + 1));
-                JsonString main_filename = config_["MainFileNameList"][i];
-                values.push_back(main_filename.value());
+                values.push_back(buffer_values[i].str());
             }
 
             if (keys.size() == 0 && values.size() == 0) {
                 keys.push_back("None");
                 values.push_back("");
             }
+            
             string main_filename = _window.display_menu(keys, values).second;
             if (main_filename != "") {
                 config_["MainFileName"] = main_filename;

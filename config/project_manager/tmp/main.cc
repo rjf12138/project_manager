@@ -2,8 +2,7 @@
 
 int main(void)
 {
-    print_hello();
-    print_world();
+    hello_world_SDK(true);
 
     return 0;
 }

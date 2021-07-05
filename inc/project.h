@@ -26,6 +26,7 @@ public:
     int pull_file(void);
     int push_file(void);
 
+    bool is_load_any_project(void) {return is_project_opened_;}
     WeJson* get_project_config(void) {return &config_;}
     string get_project_install_path(void) {return project_install_path_;}
     string get_project_path(void) {return project_path_;}

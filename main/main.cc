@@ -1,6 +1,7 @@
 #include "basic_head.h"
 #include "project.h"
 #include "cmake.h"
+#include "exe_shell.h"
 
 enum ProjectManagerOperate {
     PMO_Unknown = -1,
@@ -19,9 +20,9 @@ enum ProjectManagerOperate {
     PMO_AddRemoteGitAddr,
     PMO_PushToGithub,
     PMO_PullFromGithub,
+    PMO_CreateTmpProject,
     PMO_PushToLocal,
     PMO_PullFromLocal,
-    PMO_CreateTmpProject
 };
 
 void print_help(void);
@@ -99,6 +100,21 @@ int main(int argc, char **argv)
         {
             std::cout << "PMO_PushToGithub" << std::endl;
         } break;
+        case PMO_CreateTmpProject:
+        {
+            if (proj.is_load_any_project() != true) {
+                LOG_GLOBAL_ERROR("Not load any project.");
+                break;
+            }
+            chdir(proj.get_project_path().c_str());
+            string result;
+            exe_shell_cmd(result, "cp ../config/project_manager/tmp/main.cc ./main/");
+            exe_shell_cmd(result, "cp ../config/project_manager/tmp/hello_world_sdk.h ./inc/");
+            exe_shell_cmd(result, "cp ../config/project_manager/tmp/hello_world_sdk.cc ./src/");
+            exe_shell_cmd(result, "cp ../config/project_manager/tmp/basic_header.h ./extern_inc/");
+            exe_shell_cmd(result, "cp -r ../config/project_manager/tmp/hello ./");
+            exe_shell_cmd(result, "cp -r ../config/project_manager/tmp/world ./");
+        } break;
         default:
             print_help();
             break;
@@ -123,6 +139,8 @@ void print_help(void)
     std::cout <<  "-pp                   -- 打印当前项目名称." << std::endl;
     std::cout <<  "-rg                   -- 添加远程Github项目地址." << std::endl;
     std::cout <<  "-push                 -- 推送到GitHub上." << std::endl;
+    std::cout <<  "-pull                 -- 从GitHub上拉取代码." << std::endl;
+    std::cout <<  "-t                    -- 调试项目" << std::endl;
     std::cout <<  "" << std::endl;
 
     return ;
@@ -134,7 +152,7 @@ int param_argv(int argc, char **argv)
         return PMO_Unknown;
     }
 
-    vector<string> cmd = {"-h", "-l", "-cp","-r","-rr","-cr","-cfg","-run","-c","-e","-w","-pp","-rg","-push"};
+    vector<string> cmd = {"-h", "-l", "-cp","-r","-rr","-cr","-cfg","-run","-c","-e","-w","-pp","-rg","-push", "-pull","-t"};
     for (std::size_t i = 0; i < cmd.size(); ++i) {
         if (cmd[i] == argv[1]) {
             return static_cast<ProjectManagerOperate>(i);

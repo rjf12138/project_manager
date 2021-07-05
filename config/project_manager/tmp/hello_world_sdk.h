@@ -4,4 +4,6 @@
 #include "hello.h"
 #include "world.h"
 
+extern void hello_world_SDK(bool flag);
+
 #endif
