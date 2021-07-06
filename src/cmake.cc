@@ -80,13 +80,18 @@ int CMake::create_top_level_cmakefile(void)
     cmakefile_stream << std::endl;
 
     // 添加库目录
-    cmakefile_stream << "target_link_libraries(" << name_ << " PRIVATE ./lib/" << compile_method.value() << "/)" << std::endl;
+    cmakefile_stream << "target_link_directories(" << name_ << " PRIVATE ./lib/" << compile_method.value() << "/)" << std::endl;
     for (int i = 0; i < lib_dirs.size(); ++i) {
         JsonString target_path = lib_dirs[i];
-        cmakefile_stream << "target_link_libraries(" << name_ << " PRIVATE " << target_path.value() << ")" << std::endl;
+        cmakefile_stream << "target_link_directories(" << name_ << " PRIVATE " << target_path.value() << ")" << std::endl;
     }
     cmakefile_stream << std::endl;
 
+    // 添加第三方库
+    for (int i = 0; i < libs.size(); ++i) {
+        JsonString target_lib = lib_dirs[i];
+        cmakefile_stream << "target_link_libraries(" << name_ << " PRIVATE " << target_lib.value() << ")" << std::endl;
+    }
     
     // 并不使用add_subdirectory的情况下，使用module include组装不同的CMakeLists.txt文件
     for (int i = 0; i < src_dirs.size(); ++i) {
@@ -105,13 +110,16 @@ int CMake::create_top_level_cmakefile(void)
     return 0;
 }
 
-int CMake::create_sub_cmakefile(string sub_module_path, string module_name)
+int CMake::create_sub_cmakefile(string sub_module_path, string project_name)
 {
     chdir(sub_module_path.c_str());// 切换到子模块目录下
 
+    string sub_module_abs_path = "${CMAKE_CURRENT_SOURCE_DIR}/";
+    sub_module_abs_path += sub_module_path;
+
     ostringstream cmakefile_stream;
     cmakefile_stream << "project(" << name_ <<")" << std::endl << std::endl;
-    cmakefile_stream << "target_include_directories(" << module_name << " PRIVATE ./)" << std::endl;
+    cmakefile_stream << "target_include_directories(" << project_name << " PRIVATE " << sub_module_abs_path << ")" << std::endl << std::endl;
 
     string result;
     string cmd = "find ./ -name \"*.cc\" | wc -w";
@@ -119,7 +127,7 @@ int CMake::create_sub_cmakefile(string sub_module_path, string module_name)
     if (stoi(result) > 0) {
         string cmd = "find ./ -name \"*.cc\"";
         exe_shell_cmd(result, cmd.c_str());
-        cmakefile_stream << "target_sources(" << name_ << " PRIVATE " << result << ")" << std::endl;
+        cmakefile_stream << "target_sources(" << name_ << " PRIVATE \n\t\t" << sub_module_abs_path << "/" << result << ")" << std::endl;
     }
 
     ByteBuffer buffer;

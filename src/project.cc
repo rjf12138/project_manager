@@ -299,7 +299,7 @@ int Project::generate_project_config(string path)
     arr.clear();
 
     arr.parse("[]");
-    // arr.add("./src/");
+    arr.add("./src/");
     // arr.add("./main/");
     config_["SourceFileDirectoryListing"] = arr;
     arr.clear();
@@ -590,7 +590,7 @@ Project::modify_config(void)
         } else if (value == "Main file name") { // 选择程序入口文件
             vector<string> keys, values;
             string result;
-            exe_shell_cmd(result, "cd ./main; ls *.cc | sed 's/ /\n/g'");
+            exe_shell_cmd(result, "cd ./main; ls *.cc | sed 's/ /\\n/g'");
             LOG_GLOBAL_DEBUG("%s", result.c_str());
             ByteBuffer buffer(result);
             vector<ByteBuffer> buffer_values = buffer.split(ByteBuffer("\n"));
