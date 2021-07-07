@@ -17,6 +17,7 @@ public:
 private:
     string cmake_bin_path_;
     string project_path_;
+    string project_install_path_;
     string name_;
 
     WeJson *proj_config_;

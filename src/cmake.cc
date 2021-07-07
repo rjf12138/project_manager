@@ -7,6 +7,7 @@ CMake::CMake(Project &proj)
 {
     name_ = proj.get_project_name();
     proj_config_ = proj.get_project_config();
+    project_install_path_ = proj.get_project_install_path();
     cmake_bin_path_ = proj.get_project_install_path() + "/program/bin/cmake/cmake";
     JsonString path = (*proj_config_)["Path"];
     project_path_ = path.value().c_str();
@@ -15,6 +16,11 @@ CMake::CMake(Project &proj)
     getcwd(buffer, 1024);
     old_workspace_path_ = buffer;
     chdir(project_path_.c_str());
+
+    // 测试代码
+    (*proj_config_)["MainFileName"] = "main.cc";
+    (*proj_config_)["SourceFileDirectoryListing"].add("hello");
+    (*proj_config_)["SourceFileDirectoryListing"].add("world");
 }
 
 CMake::~CMake(void)
@@ -52,11 +58,18 @@ int CMake::create_top_level_cmakefile(void)
     cmakefile_stream << "\t\t$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Wextra;-Wshadow;-Wformat=2;-Wunused>>" << std::endl;
     cmakefile_stream << "\t\t$<${msvc_cxx}:$<BUILD_INTERFACE:-W3>>)" << std::endl << std::endl;
 
+    cmakefile_stream << "# 设置生成文件输出路径" << std::endl;
+    if (generate_file_type.value() == "exe") {
+        cmakefile_stream << "set(EXECUTABLE_OUTPUT_PATH, ./output/" << compile_method.value() << "/bin)" << std::endl;
+    } else {
+        cmakefile_stream << "set(LIBRARY_OUTPUT_PATH, ./output/" << compile_method.value() << "/lib)" << std::endl;
+    }
+
     // 定义生成文件类型
     if (generate_file_type.value() == "exe") {
         JsonString main_file = (*proj_config_)["MainFileName"];
         if (main_file.value() == "") {
-            LOG_GLOBAL_ERROR("Can't find main file!");
+            LOG_GLOBAL_ERROR("Can't find program entry file!");
             return -1;
         }
         cmakefile_stream << "add_executable(" << name_ <<  " ./main/" << main_file.value() << ")" << std::endl;
@@ -93,18 +106,32 @@ int CMake::create_top_level_cmakefile(void)
         cmakefile_stream << "target_link_libraries(" << name_ << " PRIVATE " << target_lib.value() << ")" << std::endl;
     }
     
-    // 并不使用add_subdirectory的情况下，使用module include组装不同的CMakeLists.txt文件
+    // 使用module include加载不同的CMakeLists.txt文件
     for (int i = 0; i < src_dirs.size(); ++i) {
         JsonString target_path = src_dirs[i];
         cmakefile_stream << "include(" << target_path.value() << "/CMakeLists.txt)" << std::endl;
         create_sub_cmakefile(target_path.value(), name_);
     }
     cmakefile_stream << std::endl;
+    
+    // 设置安装路径
+    // create_install_env()// 在安装目录中创建相关文件，修改 ProjectAssociatedFile.json
+    // 安装当前项目相关头文件
+    string result;
+    string cmd = "ls inc | sed 's/ /\\n/g' | wc -w";
+    exe_shell_cmd(result, cmd.c_str());
+    if (stoi(result) > 0) {
+        string cmd = "ls inc | sed 's/ /\\n/g'";
+        exe_shell_cmd(result, cmd.c_str());
+        cmakefile_stream << "install(FILES \n" << result << " DESTINATION \n\t\t"  << name_ << "/)" << std::endl; // 在cmake --install --prefix= 设置name_所在目录
+    }
+    cmakefile_stream << "install(TARGETS " << name_ << " DESTINATION lib)" << std::endl << std::endl;
 
     ByteBuffer buffer;
     buffer.write_string(cmakefile_stream.str());
     system_utils::Stream top_cmakefile;
     top_cmakefile.open("./CMakeLists.txt");
+    top_cmakefile.clear_file();
     top_cmakefile.write(buffer, buffer.data_size());
 
     return 0;
@@ -127,7 +154,7 @@ int CMake::create_sub_cmakefile(string sub_module_path, string project_name)
     if (stoi(result) > 0) {
         string cmd = "find ./ -name \"*.cc\"";
         exe_shell_cmd(result, cmd.c_str());
-        cmakefile_stream << "target_sources(" << name_ << " PRIVATE \n\t\t" << sub_module_abs_path << "/" << result << ")" << std::endl;
+        cmakefile_stream << "target_sources(" << name_ << " PRIVATE \n\t\t" << sub_module_abs_path << "/" << result << ")" << std::endl;    
     }
 
     ByteBuffer buffer;
@@ -148,11 +175,11 @@ int CMake::clean_project(void)
     }
 
     string result;
-    exe_shell_cmd(result, "rm -rf ./output/release/bin/*");
-    exe_shell_cmd(result, "rm -rf ./output/release/lib/*");
-    exe_shell_cmd(result, "rm -rf ./output/debug/bin/*");
-    exe_shell_cmd(result, "rm -rf ./output/debug/lib/*");
-    exe_shell_cmd(result, "rm -rf ./build/");
+    exe_shell_cmd_to_stdin("rm -rf ./output/release/bin/*");
+    exe_shell_cmd_to_stdin("rm -rf ./output/release/lib/*");
+    exe_shell_cmd_to_stdin("rm -rf ./output/debug/bin/*");
+    exe_shell_cmd_to_stdin("rm -rf ./output/debug/lib/*");
+    exe_shell_cmd_to_stdin("rm -rf ./build/");
 
     return 0;
 }
@@ -165,32 +192,32 @@ int CMake::build_project(bool rebuild)
     }
 
     if (rebuild == true) {
-        if (clean_project() >= 0) {
-            return -1;
-        }
+        clean_project();
     }
 
     string result;
     if (access("./build", 0) != F_OK) {
-        exe_shell_cmd(result, "mkdir ./build");
+        system("mkdir ./build");
     }
     chdir("./build");
 
     JsonString compile_method = (*proj_config_)["CompilationMethod"];
     if (compile_method.value() == "release") {
-        exe_shell_cmd(result, "cmake -DCMAKE_BUILD_TYPE=Release ..");
+        system("cmake -DCMAKE_BUILD_TYPE=Release ..");
     } else {
-        exe_shell_cmd(result, "cmake -DCMAKE_BUILD_TYPE=Debug ..");
+        system("cmake -DCMAKE_BUILD_TYPE=Debug ..");
     }
-    exe_shell_cmd(result, "cmake --build .");
+    system("cmake --build .");
 
     chdir(project_path_.c_str()); // 切回项目目录下
     
-    // 拷贝配置文件
-    if (compile_method.value() == "release") {
-        exe_shell_cmd(result, "cp -rf ./config/ ./output/release/bin");
-    } else {
-        exe_shell_cmd(result, "cp -rf ./config/ ./output/debug/bin");
+    // 重新构建就重新拷贝配置文件
+    if (rebuild == true) {
+        if (compile_method.value() == "release") {
+            system("cp -rf ./config/ ./output/release/bin");
+        } else {
+            system("cp -rf ./config/ ./output/debug/bin");
+        }
     }
 
     return 0;

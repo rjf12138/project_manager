@@ -8,9 +8,8 @@ enum ProjectManagerOperate {
     PMO_Help = 0,
     PMO_Load,
     PMO_CreateProject,
-    PMO_BuildProjectWithDebug,
-    PMO_BuildProjectWitchRelease,
-    PMO_Rebulid,
+    PMO_Build,
+    PMO_Rebuild,
     PMO_ConfigureCFG,
     PMO_RunProgram,
     PMO_CleanAll,
@@ -52,15 +51,14 @@ int main(int argc, char **argv)
             std::cout << "PMO_CreateProject" << std::endl;
             proj.create_project();
         } break;
-        case PMO_BuildProjectWithDebug:
+        case PMO_Build:
         {
-            std::cout << "PMO_BuildProjectWithDebug" << std::endl;
+            CMake cmake(proj);
+            cmake.create_top_level_cmakefile();
+            cmake.build_project(true);
+            std::cout << "PMO_Rebulid" << std::endl;
         } break;
-        case PMO_BuildProjectWitchRelease:
-        {
-            std::cout << "PMO_BuildProjectWitchRelease" << std::endl;
-        } break;
-        case PMO_Rebulid:
+        case PMO_Rebuild:
         {
             CMake cmake(proj);
             cmake.create_top_level_cmakefile();
@@ -128,8 +126,7 @@ void print_help(void)
     std::cout <<  "-h                    -- 打印帮助信息." << std::endl;
     std::cout <<  "-l                    -- 加载项目." << std::endl;
     std::cout <<  "-cp                   -- 创建新项目." << std::endl;
-    std::cout <<  "-r                    -- 生成项目(debug)." << std::endl;
-    std::cout <<  "-rr                   -- 生成项目(release)." << std::endl;
+    std::cout <<  "-r                    -- 生成项目." << std::endl;
     std::cout <<  "-cr                   -- 重新生成项目." << std::endl;
     std::cout <<  "-cfg                  -- 项目配置文件" << std::endl;
     std::cout <<  "-run                  -- 运行程序." << std::endl;
@@ -152,7 +149,7 @@ int param_argv(int argc, char **argv)
         return PMO_Unknown;
     }
 
-    vector<string> cmd = {"-h", "-l", "-cp","-r","-rr","-cr","-cfg","-run","-c","-e","-w","-pp","-rg","-push", "-pull","-t"};
+    vector<string> cmd = {"-h", "-l", "-cp","-r","-cr","-cfg","-run","-c","-e","-w","-pp","-rg","-push", "-pull","-t"};
     for (std::size_t i = 0; i < cmd.size(); ++i) {
         if (cmd[i] == argv[1]) {
             return static_cast<ProjectManagerOperate>(i);

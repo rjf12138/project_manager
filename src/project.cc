@@ -299,7 +299,7 @@ int Project::generate_project_config(string path)
     arr.clear();
 
     arr.parse("[]");
-    arr.add("./src/");
+    arr.add("src");
     // arr.add("./main/");
     config_["SourceFileDirectoryListing"] = arr;
     arr.clear();
