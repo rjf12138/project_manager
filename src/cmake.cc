@@ -117,6 +117,8 @@ int CMake::create_top_level_cmakefile(void)
     // 设置安装路径
     // create_install_env()// 在安装目录中创建相关文件，修改 ProjectAssociatedFile.json
     // 安装当前项目相关头文件
+
+    this->create_install_env();
     string result;
     string cmd = "ls inc | sed 's/ /\\n/g' | wc -w";
     exe_shell_cmd(result, cmd.c_str());
@@ -219,6 +221,66 @@ int CMake::build_project(bool rebuild)
             system("cp -rf ./config/ ./output/debug/bin");
         }
     }
+
+    return 0;
+}
+
+int CMake::create_install_env(void)
+{
+    // 获取头文件
+    string result;
+    exe_shell_cmd(result, "ls inc | sed 's/ /\\n/g'");
+    ByteBuffer buffer(result);
+    vector<ByteBuffer> headers = buffer.split(ByteBuffer("\n"));
+
+    buffer.clear();
+    JsonString compile_method = (*proj_config_)["CompilationMethod"];
+    exe_shell_cmd(result, "ls output/%s/lib | sed 's/ /\\n/g'", compile_method.value().c_str());
+    buffer.write_string(result);
+    vector<ByteBuffer> libs = buffer.split(ByteBuffer("\n"));
+
+    chdir(project_install_path_.c_str());
+    exe_shell_cmd_to_stdin("mkdir -p ./local/include/%s", name_.c_str());
+    exe_shell_cmd_to_stdin("mkdir -p ./local/lib/%s/%s/", compile_method.value().c_str(), name_.c_str());
+    // 安装前要清空目录
+    if (access("./ProjectAssociatedFile.json", 0) == -1) {
+        exe_shell_cmd_to_stdin("echo {} > ./ProjectAssociatedFile.json");
+    }
+
+    system_utils::Stream config_file;
+    config_file.open("./ProjectAssociatedFile.json");
+    ByteBuffer config_data;
+    config_file.read(config_data, config_file.file_size());
+
+    WeJson obj("{}"), arr("[]");
+    obj.add("Name", name_);
+    for (std::size_t i = 0; i < headers.size(); ++i) {
+        arr.add(headers[i].str());
+    }
+    obj.add("Include", arr);
+    arr.clear();
+    for (std::size_t i = 0; i < libs.size(); ++i) {
+        arr.add(libs[i].str());
+    }
+    obj.add("Library", arr);
+
+    WeJson js_config(config_data);
+    bool is_exists = false;
+    auto iter = js_config.begin();
+    for (; iter != js_config.end(); ++iter) {
+        if (iter.second()["Name"] == name_) {
+            iter.second() = obj;
+            break;
+        }
+    }
+
+    if (is_exists == false) {
+        js_config.add(obj);
+    }
+    config_file.clear_file();
+    config_data.clear();
+    config_data.write_string(js_config.format_json());
+    config_file.write(config_data, config_data.data_size());
 
     return 0;
 }
