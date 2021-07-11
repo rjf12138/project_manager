@@ -117,17 +117,15 @@ int CMake::create_top_level_cmakefile(void)
     // 设置安装路径
     // create_install_env()// 在安装目录中创建相关文件，修改 ProjectAssociatedFile.json
     // 安装当前项目相关头文件
-
-    this->create_install_env();
-    string result;
-    string cmd = "ls inc | sed 's/ /\\n/g' | wc -w";
-    exe_shell_cmd(result, cmd.c_str());
-    if (stoi(result) > 0) {
-        string cmd = "ls inc | sed 's/ /\\n/g'";
-        exe_shell_cmd(result, cmd.c_str());
-        cmakefile_stream << "install(FILES \n" << result << " DESTINATION \n\t\t"  << name_ << "/)" << std::endl; // 在cmake --install --prefix= 设置name_所在目录
-    }
-    cmakefile_stream << "install(TARGETS " << name_ << " DESTINATION lib)" << std::endl << std::endl;
+    // string result;
+    // string cmd = "ls inc | sed 's/ /\\n/g' | wc -w";
+    // exe_shell_cmd(result, cmd.c_str());
+    // if (stoi(result) > 0) {
+    //     string cmd = "ls inc | sed 's/ /\\n/g'";
+    //     exe_shell_cmd(result, cmd.c_str());
+    //     cmakefile_stream << "install(FILES \n" << result << " DESTINATION \n\t\t"  << name_ << "/)" << std::endl; // 在cmake --install --prefix= 设置name_所在目录
+    // }
+    // cmakefile_stream << "install(TARGETS " << name_ << " DESTINATION lib)" << std::endl << std::endl;
 
     ByteBuffer buffer;
     buffer.write_string(cmakefile_stream.str());
@@ -213,6 +211,28 @@ int CMake::build_project(bool rebuild)
 
     chdir(project_path_.c_str()); // 切回项目目录下
     
+    JsonString generate_file = (*proj_config_)["GenerateFileType"];
+    string generate_file_name = "lib";
+    if (generate_file == "share_lib") {
+        if (compile_method.value() == "debug") {
+            generate_file_name += name_ + "d.so";
+        } else {
+            generate_file_name += name_ + ".so";
+        }
+    } else if (generate_file == "static_lib") {
+        if (compile_method.value() == "debug") {
+            generate_file_name += name_ + "d.a";
+        } else {
+            generate_file_name += name_ + ".a";
+        }
+    } else {
+        generate_file_name = name_;
+    }
+    exe_shell_cmd(result, "cp -f ./build/%s ./output/%s/%s/", 
+            generate_file_name.c_str(), 
+            compile_method.value().c_str(),
+            generate_file.value() == "exe" ? "bin" : "lib");
+    cerr << result;
     // 重新构建就重新拷贝配置文件
     if (rebuild == true) {
         if (compile_method.value() == "release") {
@@ -225,26 +245,44 @@ int CMake::build_project(bool rebuild)
     return 0;
 }
 
+// int CMake::install_project(void)
+// {
+//     this->create_install_env();
+//     string cmd = "cmake --install . --prefix ";
+//     cmd += project_install_path_;
+//     system("cmake -DCMAKE_BUILD_TYPE=Release ..");
+// }
+
 int CMake::create_install_env(void)
 {
+    JsonString generate_file = (*proj_config_)["GenerateFileType"];
+    JsonString compile_method = (*proj_config_)["CompilationMethod"];
+
+    string include_path = "./local/include/";
+    include_path.append(name_);
+
+    string lib_path = "./local/lib/";
+    lib_path += compile_method.value() + "/" + name_ + "/";
     // 获取头文件
     string result;
     exe_shell_cmd(result, "ls inc | sed 's/ /\\n/g'");
     ByteBuffer buffer(result);
     vector<ByteBuffer> headers = buffer.split(ByteBuffer("\n"));
 
-    buffer.clear();
-    JsonString compile_method = (*proj_config_)["CompilationMethod"];
-    exe_shell_cmd(result, "ls output/%s/lib | sed 's/ /\\n/g'", compile_method.value().c_str());
-    buffer.write_string(result);
-    vector<ByteBuffer> libs = buffer.split(ByteBuffer("\n"));
-
     chdir(project_install_path_.c_str());
-    exe_shell_cmd_to_stdin("mkdir -p ./local/include/%s", name_.c_str());
+    if (access(include_path.c_str(), 0) != -1) {
+        exe_shell_cmd(result, "rm -rf %s/*", include_path.c_str());
+    }
+    
+    if (access(lib_path.c_str(), 0) != -1) {
+        exe_shell_cmd(result, "rm -rf %s/*", lib_path.c_str());
+    }
+
+    exe_shell_cmd_to_stdin("mkdir -p %s", name_.c_str());
     exe_shell_cmd_to_stdin("mkdir -p ./local/lib/%s/%s/", compile_method.value().c_str(), name_.c_str());
     // 安装前要清空目录
     if (access("./ProjectAssociatedFile.json", 0) == -1) {
-        exe_shell_cmd_to_stdin("echo {} > ./ProjectAssociatedFile.json");
+        exe_shell_cmd_to_stdin("echo [] > ./ProjectAssociatedFile.json");
     }
 
     system_utils::Stream config_file;
@@ -258,29 +296,41 @@ int CMake::create_install_env(void)
         arr.add(headers[i].str());
     }
     obj.add("Include", arr);
+
     arr.clear();
-    for (std::size_t i = 0; i < libs.size(); ++i) {
-        arr.add(libs[i].str());
+    arr.parse("[]");
+    string lib_name = "lib";
+    if (generate_file == "share_lib") {
+        if (compile_method.value() == "debug") {
+            lib_name += name_ + "d.so";
+        } else {
+            lib_name += name_ + ".so";
+        }
+    } else {
+        if (compile_method.value() == "debug") {
+            lib_name += name_ + "d.a";
+        } else {
+            lib_name += name_ + ".a";
+        }
     }
+    arr.add(lib_name);
     obj.add("Library", arr);
 
     WeJson js_config(config_data);
     bool is_exists = false;
-    auto iter = js_config.begin();
-    for (; iter != js_config.end(); ++iter) {
-        if (iter.second()["Name"] == name_) {
-            iter.second() = obj;
-            break;
+    for (int i = 0; i < js_config.size(); ++i) {
+        if (js_config[i]["Name"] == name_) {
+            js_config.erase(i);
         }
     }
+    js_config.add(obj);
 
-    if (is_exists == false) {
-        js_config.add(obj);
-    }
     config_file.clear_file();
     config_data.clear();
     config_data.write_string(js_config.format_json());
     config_file.write(config_data, config_data.data_size());
+
+    chdir(project_path_.c_str());
 
     return 0;
 }
