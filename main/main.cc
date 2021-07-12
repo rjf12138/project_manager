@@ -19,9 +19,9 @@ enum ProjectManagerOperate {
     PMO_AddRemoteGitAddr,
     PMO_PushToGithub,
     PMO_PullFromGithub,
-    PMO_CreateTmpProject,
     PMO_PushToLocal,
     PMO_PullFromLocal,
+    PMO_CreateTmpProject,
 };
 
 void print_help(void);
@@ -53,13 +53,21 @@ int main(int argc, char **argv)
         } break;
         case PMO_Build:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
             CMake cmake(proj);
             cmake.create_top_level_cmakefile();
-            cmake.build_project(true);
+            cmake.build_project(false);
             std::cout << "PMO_Rebulid" << std::endl;
         } break;
         case PMO_Rebuild:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
             CMake cmake(proj);
             cmake.create_top_level_cmakefile();
             cmake.build_project(true);
@@ -98,6 +106,25 @@ int main(int argc, char **argv)
         {
             std::cout << "PMO_PushToGithub" << std::endl;
         } break;
+        case PMO_PullFromGithub:
+        {
+            std::cout << "PMO_PullFromGithub" <<std::endl;
+        } break;
+        case PMO_PullFromLocal:
+        {
+            std::cout << "PMO_PullFromLocal" <<std::endl;
+        } break;
+        case PMO_PushToLocal:
+        {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            CMake cmake(proj);
+            cmake.create_install_env();
+            proj.push_file();
+            std::cout << "PMO_PushToLocal" <<std::endl;
+        } break;
         case PMO_CreateTmpProject:
         {
             if (proj.is_load_any_project() != true) {
@@ -135,8 +162,10 @@ void print_help(void)
     std::cout <<  "-w                    -- 打开新的终端." << std::endl;
     std::cout <<  "-pp                   -- 打印当前项目名称." << std::endl;
     std::cout <<  "-rg                   -- 添加远程Github项目地址." << std::endl;
-    std::cout <<  "-push                 -- 推送到GitHub上." << std::endl;
-    std::cout <<  "-pull                 -- 从GitHub上拉取代码." << std::endl;
+    std::cout <<  "-push_git             -- 推送代码到GitHub上." << std::endl;
+    std::cout <<  "-pull_git             -- 从GitHub上拉取代码." << std::endl;
+    std::cout <<  "-push_local           -- 推送生成文件到本地上." << std::endl;
+    std::cout <<  "-pull_local           -- 从本地上拉取关联项目." << std::endl;
     std::cout <<  "-t                    -- 调试项目" << std::endl;
     std::cout <<  "" << std::endl;
 
@@ -149,7 +178,7 @@ int param_argv(int argc, char **argv)
         return PMO_Unknown;
     }
 
-    vector<string> cmd = {"-h", "-l", "-cp","-r","-cr","-cfg","-run","-c","-e","-w","-pp","-rg","-push", "-pull","-t"};
+    vector<string> cmd = {"-h", "-l", "-cp","-r","-cr","-cfg","-run","-c","-e","-w","-pp","-rg","-push_git", "-pull_git", "-push_local", "-pull_local","-t",};
     for (std::size_t i = 0; i < cmd.size(); ++i) {
         if (cmd[i] == argv[1]) {
             return static_cast<ProjectManagerOperate>(i);

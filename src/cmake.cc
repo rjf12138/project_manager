@@ -262,7 +262,7 @@ int CMake::create_install_env(void)
     include_path.append(name_);
 
     string lib_path = "./local/lib/";
-    lib_path += compile_method.value() + "/" + name_ + "/";
+    lib_path += compile_method.value() + "/" + name_ + "/linux";
     // 获取头文件
     string result;
     exe_shell_cmd(result, "ls inc | sed 's/ /\\n/g'");
@@ -270,23 +270,22 @@ int CMake::create_install_env(void)
     vector<ByteBuffer> headers = buffer.split(ByteBuffer("\n"));
 
     chdir(project_install_path_.c_str());
-    if (access(include_path.c_str(), 0) != -1) {
-        exe_shell_cmd(result, "rm -rf %s/*", include_path.c_str());
+    if (access(include_path.c_str(), 0) == -1) {
+        exe_shell_cmd_to_stdin("mkdir -p %s", include_path.c_str());
     }
     
-    if (access(lib_path.c_str(), 0) != -1) {
-        exe_shell_cmd(result, "rm -rf %s/*", lib_path.c_str());
+    if (access(lib_path.c_str(), 0) == -1) {
+        exe_shell_cmd_to_stdin("mkdir -p %s", lib_path.c_str());
     }
 
-    exe_shell_cmd_to_stdin("mkdir -p %s", name_.c_str());
-    exe_shell_cmd_to_stdin("mkdir -p ./local/lib/%s/%s/", compile_method.value().c_str(), name_.c_str());
-    // 安装前要清空目录
-    if (access("./ProjectAssociatedFile.json", 0) == -1) {
-        exe_shell_cmd_to_stdin("echo [] > ./ProjectAssociatedFile.json");
+    // exe_shell_cmd_to_stdin("mkdir -p %s", name_.c_str());
+    // exe_shell_cmd_to_stdin("mkdir -p ./local/lib/%s/%s/", compile_method.value().c_str(), name_.c_str());
+    if (access("./local/ProjectAssociatedFile.json", 0) == -1) {
+        exe_shell_cmd_to_stdin("echo [] > ./local/ProjectAssociatedFile.json");
     }
 
     system_utils::Stream config_file;
-    config_file.open("./ProjectAssociatedFile.json");
+    config_file.open("./local/ProjectAssociatedFile.jsonn");
     ByteBuffer config_data;
     config_file.read(config_data, config_file.file_size());
 
@@ -297,6 +296,7 @@ int CMake::create_install_env(void)
     }
     obj.add("Include", arr);
 
+    // 获取生成的库文件
     arr.clear();
     arr.parse("[]");
     string lib_name = "lib";
@@ -317,7 +317,6 @@ int CMake::create_install_env(void)
     obj.add("Library", arr);
 
     WeJson js_config(config_data);
-    bool is_exists = false;
     for (int i = 0; i < js_config.size(); ++i) {
         if (js_config[i]["Name"] == name_) {
             js_config.erase(i);
