@@ -996,52 +996,26 @@ Project::pull_file(void)
 int 
 Project::push_file(void)
 {
-    JsonString js_value = config_["ImportAndExportDirectory"];
-    string path = js_value.value();
-    if (path == "") {
-        return -1;
-    }
-
     JsonString compile_method = config_["CompilationMethod"];
 #ifdef __RJF_WINDOWS__
     string include_path = project_install_path_ + "/local/include";
     string library_path = project_install_path_ + "/local/lib";
 #else
-    string include_path = project_install_path_ + "/local/include";
-    string library_path = project_install_path_ + "/local/lib/" + compile_method.value();
+    string include_path = project_install_path_ + "/local/include/" + name_;
+    string library_path = project_install_path_ + "/local/lib/" + compile_method.value() + "/" + name_;
 #endif
 
-    ByteBuffer buffer;
-    string js_file_path = project_install_path_ + "/local/ProjectAssociatedFile.json";
-    system_utils::Stream file_stream;
+LOG_GLOBAL_DEBUG("");
+    string cmd = "rsync -r -u --delete ";
+    cmd += project_path_ + "/inc/" + " ";
+    cmd += include_path + "/" + name_ + "/";
+    system(cmd.c_str());
 
-    file_stream.open(js_file_path);
-    file_stream.read(buffer, file_stream.file_size());
-    WeJson js_file(buffer);
-
-    JsonObject install_info;
-    for (int i = 0; i < js_file.size(); ++i) {
-        JsonString name = js_file[i]["Name"];
-        if (name.value() == name_) {
-            install_info = js_file[i];
-        }
-    }
-
-    // JsonArray push_inc_file = js_file["PushFile"]["include"]; // 提交头文件
-    for (int i = 0; i < install_info["Include"].size(); ++i) {
-        JsonString push_file = install_info["Include"][i];
-        string cmd = "rsync -r -u --delete ";
-        cmd += project_path_ + "/inc/" + push_file.value() + " ";
-        cmd += include_path + "/" + push_file.value();
-    }
-
-    // JsonArray push_lib_file = config_["PushFile"]["library"];
-    for (int i = 0; i < install_info["Library"].size(); ++i) {
-        JsonString push_file = install_info["Library"][i];
-        string cmd = "rsync -r -u --delete ";
-        cmd += project_path_ + "/output/" + compile_method.value() + "/lib/" + push_file.value() + " ";
-        cmd += library_path + "/" + push_file.value();
-    }
-
+LOG_GLOBAL_DEBUG("%s", cmd.c_str());
+    cmd = "rsync -r -u --delete ";
+    cmd += project_path_ + "/output/" + compile_method.value() + "/lib/" + " ";
+    cmd += library_path + "/";
+    system(cmd.c_str());
+LOG_GLOBAL_DEBUG("%s", cmd.c_str());
     return 0;
 }
