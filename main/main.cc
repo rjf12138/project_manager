@@ -112,6 +112,11 @@ int main(int argc, char **argv)
         } break;
         case PMO_PullFromLocal:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            proj.pull_file();
             std::cout << "PMO_PullFromLocal" <<std::endl;
         } break;
         case PMO_PushToLocal:

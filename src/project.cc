@@ -16,6 +16,13 @@ Project::~Project(void)
 int 
 Project::init(void)
 {
+    char workpath[1024] = {0};
+    if (getcwd(workpath, 1023) == NULL) {
+        LOG_GLOBAL_ERROR("Failed to get current working directory");
+        return -1;
+    } else {
+        work_path_ = workpath;
+    }
 #ifdef __RJF_LINUX__
     exe_shell_cmd(project_install_path_, "cat $HOME/.project_manager.ini");
     project_install_path_[project_install_path_.length() - 1] = '/';//将最后的换行符赋值为空
@@ -232,6 +239,7 @@ Project::create_project(void)
         return -1;
     }
 
+    chdir(work_path_.c_str());
     exe_shell_cmd(project_path_, "cd %s;pwd", project_path_.c_str()); // 获取项目创建的绝对路径
     project_path_[project_path_.length() - 1] = '/'; // 最后面的换行符换成空字符
     project_path_ = project_path_ + name_; // 获取项目路径
@@ -474,9 +482,6 @@ Project::modify_config(void)
         cfg_values.push_back("View");
         
         cfg_params.push_back("Associated project"); // 关联项目
-        cfg_values.push_back("View");
-
-        cfg_params.push_back("Export header file"); // 当前项目需要共享的文件和目录
         cfg_values.push_back("View");
 
         cfg_params.push_back("Save");   // 库和头文件导入导出目录
@@ -869,58 +874,6 @@ Project::modify_config(void)
                     break;
                 }
             }
-        } else if (value == "Export header file") {
-            vector<string> keys = {"1", "2", "3", "4"}, values = {"View ExportFile", "Add ExportFile", "Remove ExportFile", "Exit"};
-            while (true) {
-                string operation = _window.display_menu(keys, values).second;
-                if (operation == "View ExportFile") {
-                    vector<string> nums, list;
-                    for (int i = 0; i < config_["ExportFile"].size(); ++i) {
-                        nums.push_back(to_string(i+1));
-                        JsonString name = config_["ExportFile"][i];
-                        list.push_back(name.value());
-                    }
-                    if (nums.size() == 0 && list.size() == 0) {
-                        nums.push_back("None");
-                        list.push_back("");
-                    }
-                    _window.display_menu(nums, list);
-                } else if (operation == "Add ExportFile") {
-                    string name;
-                    int ret = _window.get_input(name, "Input export file name");
-                    if (ret == -1 || name == "") {
-                        continue;
-                    }
-                    config_["ExportFile"].add(name);
-                } else if (operation == "Remove ExportFile") {
-                    vector<string> nums, list;
-                    for (int i = 0; i < config_["ExportFile"].size(); ++i) {
-                        nums.push_back(to_string(i+1));
-                        JsonString name = config_["ExportFile"][i];
-                        list.push_back(name.value());
-                    }
-                    if (nums.size() == 0 && list.size() == 0) {
-                        nums.push_back("None");
-                        list.push_back("");
-                    }
-                    string del_name = _window.display_menu(nums, list).second;
-                    if (del_name == "") {
-                        continue;
-                    }
-
-                    string title = "Are you sure to delete ";
-                    bool is_delete = _window.message(title + del_name);
-                    for (int i = 0; i < config_["ExportFile"].size() && is_delete; ++i) {
-                        JsonString name = config_["ExportFile"][i];
-                        if (name.value() == del_name) {
-                            config_["ExportFile"].erase(i);
-                            continue;
-                        }
-                    }
-                } else if (operation == "Exit") {
-                    break;
-                }
-            }
         } else if (value == "Save") {
             string project_config_path = project_path_ + "/.proj_config/project_config.json";
             ByteBuffer buffer;
@@ -949,8 +902,8 @@ Project::pull_file(void)
     string include_path = project_install_path_ + "/local/include/";
     string library_path = project_install_path_ + "/local/lib/" + compile_method.value();
 #else
-    string include_path = project_install_path_ + "/local/include";
-    string library_path = project_install_path_ + "/local/lib/" + compile_method.value();
+    string include_path = project_install_path_ + "/local/include/";
+    string library_path = project_install_path_ + "/local/lib/" + compile_method.value() + "/linux/";
 #endif
 
     ByteBuffer buffer;
@@ -965,26 +918,32 @@ Project::pull_file(void)
     // 使用 rsync -r -u --delete ;-r 递归目录， -u 更新 --delete 如果源端没有的文件则会在目标端删除
     for (int i = 0; i < associate_proj_array.size(); ++i) {
         JsonString name = associate_proj_array[i];
+LOG_GLOBAL_DEBUG("associate-name: %s, size: %d", name.value().c_str(), js_file.size());
         for (int j = 0; j < js_file.size(); ++j) {
-            JsonObject object = js_file[i];
+            JsonObject object = js_file[j];
             JsonString proj_name = object["Name"];
+LOG_GLOBAL_DEBUG("ASSOCIATE_name: %s", proj_name.value().c_str());
             if (name.value() == proj_name.value()) {
                 // 同步头文件
                 JsonArray array = object["Include"];
-                for (int i = 0; i < array.size(); ++i) {
-                    JsonString pull_file = array[i];
+                for (int k = 0; k < array.size(); ++k) {
+                    JsonString pull_file = array[k];
                     string cmd = "rsync -r -u --delete ";
                     cmd += include_path + "/" + proj_name.value() + "/" + pull_file.value() + " ";
                     cmd += project_path_ + "/extern_inc/" + pull_file.value();
+                    system(cmd.c_str());
+                    LOG_GLOBAL_DEBUG("cmd: %s", cmd.c_str());
                 }
 
                 // 同步库文件
                 array = object["Library"];
-                for (int i = 0; i < array.size(); ++i) {
-                    JsonString pull_file = array[i];
+                for (int k = 0; k < array.size(); ++k) {
+                    JsonString pull_file = array[k];
                     string cmd = "rsync -r -u --delete ";
-                    cmd += library_path + "/" + proj_name.value() + "/" + pull_file.value() + " ";
-                    cmd += project_path_ + "/lib/" + compile_method.value() +"/linux/" + pull_file.value();
+                    cmd += library_path + "/" + proj_name.value() + "/linux/" + pull_file.value() + " ";
+                    cmd += project_path_ + "/lib/" + compile_method.value() + pull_file.value();
+                    system(cmd.c_str());
+                    LOG_GLOBAL_DEBUG("cmd: %s", cmd.c_str());
                 }
             }
         }
@@ -996,6 +955,11 @@ Project::pull_file(void)
 int 
 Project::push_file(void)
 {
+    if (project_install_path_ == "") {
+        LOG_GLOBAL_ERROR("Empty install path.");
+        return -1;
+    }
+
     JsonString compile_method = config_["CompilationMethod"];
 #ifdef __RJF_WINDOWS__
     string include_path = project_install_path_ + "/local/include";
@@ -1008,7 +972,7 @@ Project::push_file(void)
 LOG_GLOBAL_DEBUG("");
     string cmd = "rsync -r -u --delete ";
     cmd += project_path_ + "/inc/" + " ";
-    cmd += include_path + "/" + name_ + "/";
+    cmd += include_path + "/";
     system(cmd.c_str());
 
 LOG_GLOBAL_DEBUG("%s", cmd.c_str());
@@ -1017,5 +981,6 @@ LOG_GLOBAL_DEBUG("%s", cmd.c_str());
     cmd += library_path + "/";
     system(cmd.c_str());
 LOG_GLOBAL_DEBUG("%s", cmd.c_str());
+
     return 0;
 }

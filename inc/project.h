@@ -37,8 +37,9 @@ private:
     bool is_project_opened_;
 
     string name_;
-    string project_install_path_;
-    string project_path_;
+    string project_install_path_; //项目管理程序安装位置
+    string project_path_; // 项目所在路径
+    string work_path_; // 项目管理程序所运行的目录
     string output_bin_path_;
     string output_lib_path_;
 
