@@ -903,7 +903,7 @@ Project::pull_file(void)
     string library_path = project_install_path_ + "/local/lib/" + compile_method.value();
 #else
     string include_path = project_install_path_ + "/local/include/";
-    string library_path = project_install_path_ + "/local/lib/" + compile_method.value() + "/linux/";
+    string library_path = project_install_path_ + "/local/lib/" + compile_method.value();
 #endif
 
     ByteBuffer buffer;
@@ -918,33 +918,21 @@ Project::pull_file(void)
     // 使用 rsync -r -u --delete ;-r 递归目录， -u 更新 --delete 如果源端没有的文件则会在目标端删除
     for (int i = 0; i < associate_proj_array.size(); ++i) {
         JsonString name = associate_proj_array[i];
-LOG_GLOBAL_DEBUG("associate-name: %s, size: %d", name.value().c_str(), js_file.size());
         for (int j = 0; j < js_file.size(); ++j) {
             JsonObject object = js_file[j];
             JsonString proj_name = object["Name"];
-LOG_GLOBAL_DEBUG("ASSOCIATE_name: %s", proj_name.value().c_str());
             if (name.value() == proj_name.value()) {
                 // 同步头文件
-                JsonArray array = object["Include"];
-                for (int k = 0; k < array.size(); ++k) {
-                    JsonString pull_file = array[k];
-                    string cmd = "rsync -r -u --delete ";
-                    cmd += include_path + "/" + proj_name.value() + "/" + pull_file.value() + " ";
-                    cmd += project_path_ + "/extern_inc/" + pull_file.value();
-                    system(cmd.c_str());
-                    LOG_GLOBAL_DEBUG("cmd: %s", cmd.c_str());
-                }
+                string cmd = "rsync -r -u --delete ";
+                cmd += include_path + "/" + proj_name.value() + " ";
+                cmd += project_path_ + "/extern_inc/";
+                system(cmd.c_str());
 
                 // 同步库文件
-                array = object["Library"];
-                for (int k = 0; k < array.size(); ++k) {
-                    JsonString pull_file = array[k];
-                    string cmd = "rsync -r -u --delete ";
-                    cmd += library_path + "/" + proj_name.value() + "/linux/" + pull_file.value() + " ";
-                    cmd += project_path_ + "/lib/" + compile_method.value() + pull_file.value();
-                    system(cmd.c_str());
-                    LOG_GLOBAL_DEBUG("cmd: %s", cmd.c_str());
-                }
+                cmd = "rsync -r -u ";
+                cmd += library_path + "/" + proj_name.value() + "/linux/" + " ";
+                cmd += project_path_ + "/lib/" + compile_method.value() + "/";
+                system(cmd.c_str());
             }
         }
     }
@@ -966,21 +954,18 @@ Project::push_file(void)
     string library_path = project_install_path_ + "/local/lib";
 #else
     string include_path = project_install_path_ + "/local/include/" + name_;
-    string library_path = project_install_path_ + "/local/lib/" + compile_method.value() + "/" + name_;
+    string library_path = project_install_path_ + "/local/lib/" + compile_method.value() + "/" + name_ + "/linux";
 #endif
 
-LOG_GLOBAL_DEBUG("");
     string cmd = "rsync -r -u --delete ";
     cmd += project_path_ + "/inc/" + " ";
     cmd += include_path + "/";
     system(cmd.c_str());
 
-LOG_GLOBAL_DEBUG("%s", cmd.c_str());
     cmd = "rsync -r -u --delete ";
     cmd += project_path_ + "/output/" + compile_method.value() + "/lib/" + " ";
     cmd += library_path + "/";
     system(cmd.c_str());
-LOG_GLOBAL_DEBUG("%s", cmd.c_str());
 
     return 0;
 }

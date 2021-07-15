@@ -84,26 +84,71 @@ int main(int argc, char **argv)
         } break;
         case PMO_CleanAll:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            CMake cmake(proj);
+            cmake.clean_project();
             std::cout << "PMO_CleanAll" << std::endl;
         } break;
         case PMO_EnterExeDir:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            string result;
+            exe_shell_cmd(result, "cd %s;gnome-terminal --tab 2> /tmp/terminal_error;\
+            file_size=`du /tmp/terminal_error | awk '{ORS=\"\";print $1}'`\
+            if [ $file_size != \"0\" ];then\
+                exec gnome-terminal\
+            fi", proj.get_project_bin_path().c_str());
             std::cout << "PMO_EnterExeDir" << std::endl;
         } break;
         case PMO_NewTerminter:
         {
+            system("gnome-terminal");
             std::cout << "PMO_NewTerminter" << std::endl;
         } break;
         case PM0_PrintProjectName:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            std::cout << "Project Name: " << proj.get_project_name() << std::endl;
+            JsonString jsuuid = (*proj.get_project_config())["UUID"];
+            std::cout << "Project UUID: " << jsuuid.value() << std::endl;
             std::cout << "PM0_PrintProjectName" << std::endl;
         } break;
         case PMO_AddRemoteGitAddr:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            string github_addr;
+            ProjectWindow window;
+            int ret = window.get_input(github_addr, "输入远程github仓库地址\n(git remote add origin git@github.com:XXXX/XXXXX.git)");
+            if (ret < 0) {
+                LOG_GLOBAL_DEBUG("Get github remote addr failed.");
+                return 0;
+            }
+            string cmd = "git remote add origin ";
+            cmd += github_addr;
+            system(cmd.c_str());
             std::cout << "PMO_AddRemoteGitAddr" << std::endl;
         } break;
         case PMO_PushToGithub:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            system("git add -A .");
+            system("git commit -m \"`date`\"");
+            system("git push -u origin master");
             std::cout << "PMO_PushToGithub" << std::endl;
         } break;
         case PMO_PullFromGithub:

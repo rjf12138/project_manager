@@ -179,7 +179,7 @@ int CMake::clean_project(void)
     exe_shell_cmd_to_stdin("rm -rf ./output/release/lib/*");
     exe_shell_cmd_to_stdin("rm -rf ./output/debug/bin/*");
     exe_shell_cmd_to_stdin("rm -rf ./output/debug/lib/*");
-    exe_shell_cmd_to_stdin("rm -rf ./build/");
+    exe_shell_cmd_to_stdin("rm -rf ./build");
 
     return 0;
 }
