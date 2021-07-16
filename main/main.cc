@@ -50,6 +50,10 @@ int main(int argc, char **argv)
         {
             std::cout << "PMO_CreateProject" << std::endl;
             proj.create_project();
+            chdir(proj.get_project_path().c_str());
+            system("git init");
+            system("git add -A .");
+	        system("git commit -m \"first commit\"");
         } break;
         case PMO_Build:
         {
@@ -75,11 +79,24 @@ int main(int argc, char **argv)
         } break;
         case PMO_ConfigureCFG:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
             std::cout << "PMO_ConfigureCFG" << std::endl;
             proj.modify_config();
         } break;
         case PMO_RunProgram:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            chdir(proj.get_project_bin_path().c_str());
+            JsonString prog_arg = (*proj.get_project_config())["ProgramRunArgs"];
+            string bin_path = proj.get_project_bin_path() + "/" + proj.get_project_name() + " " + prog_arg.value();
+            cout << bin_path << endl;
+            system(bin_path.c_str());
             std::cout << "PMO_RunProgram" << std::endl;
         } break;
         case PMO_CleanAll:
@@ -99,11 +116,7 @@ int main(int argc, char **argv)
                 return -1;
             }
             string result;
-            exe_shell_cmd(result, "cd %s;gnome-terminal --tab 2> /tmp/terminal_error;\
-            file_size=`du /tmp/terminal_error | awk '{ORS=\"\";print $1}'`\
-            if [ $file_size != \"0\" ];then\
-                exec gnome-terminal\
-            fi", proj.get_project_bin_path().c_str());
+            exe_shell_cmd(result, "cd %s;gnome-terminal --tab", proj.get_project_bin_path().c_str());
             std::cout << "PMO_EnterExeDir" << std::endl;
         } break;
         case PMO_NewTerminter:
@@ -153,6 +166,11 @@ int main(int argc, char **argv)
         } break;
         case PMO_PullFromGithub:
         {
+            if (proj.is_load_any_project() == false) {
+                LOG_GLOBAL_ERROR("Not load any project");
+                return -1;
+            }
+            system("git pull");
             std::cout << "PMO_PullFromGithub" <<std::endl;
         } break;
         case PMO_PullFromLocal:
@@ -216,7 +234,7 @@ void print_help(void)
     std::cout <<  "-pull_git             -- 从GitHub上拉取代码." << std::endl;
     std::cout <<  "-push_local           -- 推送生成文件到本地上." << std::endl;
     std::cout <<  "-pull_local           -- 从本地上拉取关联项目." << std::endl;
-    std::cout <<  "-t                    -- 调试项目" << std::endl;
+    //std::cout <<  "-t                    -- 调试项目" << std::endl;
     std::cout <<  "" << std::endl;
 
     return ;

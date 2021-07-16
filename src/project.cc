@@ -59,6 +59,11 @@ Project::init(void)
         }
         project_config.read(config_buf, project_config.file_size());
         config_.parse(config_buf);
+
+        JsonString method = config_["CompilationMethod"];
+        output_bin_path_ = project_path_ + "/output/" + method.value() + "/bin";
+        output_lib_path_ = project_path_ + "/output/" + method.value() + "/lib";
+
         is_project_opened_ = true;
         chdir(project_path_.c_str());
     }
@@ -169,10 +174,6 @@ Project::load_project(string project_path)
 
         JsonString name = config_["Name"];
         name_ = name.value();
-
-        JsonString method = config_["CompilationMethod"];
-        output_bin_path_ = project_path_ + "/output/" + method.value() + "/bin";
-        output_lib_path_ = project_path_ + "/output/" + method.value() + "/lib";
     } else {
         project_path_ = project_path;
         is_new_project = true;
@@ -200,6 +201,11 @@ Project::load_project(string project_path)
     buffer.write_string(project_info_.format_json());
     project_paths.clear_file();
     project_paths.write(buffer, buffer.data_size());
+
+    // 用 vscode 打开项目
+    string cmd = "code -r ";
+    cmd += project_path_;
+    system(cmd.c_str());
 
     return 0;
 }
