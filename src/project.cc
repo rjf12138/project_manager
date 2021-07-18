@@ -344,7 +344,7 @@ int Project::generate_project_config(string path)
     config_["ProgramRunArgs"] = "";
 
     // 关联项目
-    arr.parse("[]");
+    arr.parse("[\"gtest\"]");
     config_["AssociatedProject"] = arr;
     config_["ExportFile"] = arr;
 
