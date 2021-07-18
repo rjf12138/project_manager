@@ -4,7 +4,7 @@
 ├── config      # 配置文件
 ├── doc         # 文档
 |-- extern_inc  # 外部依赖头文件
-├── inc         # 项目对外头文件
+├── inc         # 项目对外接口文件
 ├── lib         # 外部添加的库文件
 │   ├── debug   # debug 版本的库文件
 │   └── release # release 版本的库文件
@@ -18,7 +18,14 @@
 │       └── lib # release版本的库文件
 └── src         # 程序中依赖的其他源文件，程序中主要功能实现的位置
 
-1. 内部的头文件直接和源文件放在一起，而需要对外提供的头文件则放到 inc 目录中， 依赖的外部头文件则放到 extern_inc 中
+1. 内部的头文件直接和源文件放在一起，而需要对外提供的头文件则放到 inc 目录中， 依赖的其他项目头文件则放到 extern_inc 中
 2. inc 和 extern_inc 还有可能存在头文件的各个源文件目录是默认添加的，不需要在配置中添加。除此之外额外创建的才是需要添加
 3. lib 依据指定编译模式(debug/release)也是默认添加的库目录，不需要在配置中写入。除此之外其他的库目录需要在配置中添加
 4. main目录不能作为程序源文件添加到配置中
+5. 非对外提供的头文件将和源文件放在一起，比如有个功能: hello.h, hello.cc, hello.h 不给其他项目引用那么就和源文件放在一起，否则放到inc目录中
+
+
+1. 安装 
+update_bin.sh： 更新 project 可执行文件到 github
+install_project_manager.sh: 安装project_manager到系统中
+update_project_manager： 从github上更新project_manager

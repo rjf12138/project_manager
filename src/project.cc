@@ -973,5 +973,10 @@ Project::push_file(void)
     cmd += library_path + "/";
     system(cmd.c_str());
 
+    chdir(project_install_path_.c_str());
+    system("git add -A .");
+    system("git commit -m \"`date`\"");
+    system("git push -u origin master");
+
     return 0;
 }
