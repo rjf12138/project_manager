@@ -26,6 +26,6 @@
 
 
 1. 安装 
-update_bin.sh： 更新 project 可执行文件到 github
+update_bin.sh： 更新 project 可执行文件到 github(操作：project -cr;cd config/;./update_bin.sh)
 install_project_manager.sh: 安装project_manager到系统中
-update_project_manager： 从github上更新project_manager
+update_project_manager： 从github上更新project_manager(终端直接运行：update_project_manager)

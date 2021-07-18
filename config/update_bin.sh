@@ -7,8 +7,9 @@ then
 fi
 
 cd project_manager_bin
-git pull
-cp ../../main ./program/project
+git pull origin master
+
+cp ../../main ./program/project_v
 
 git add -A .
 git commit -m "`date`"
