@@ -276,6 +276,11 @@ Project::create_project(void)
     exe_shell_cmd(result, "mkdir %s/.proj_config", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/.vscode", project_path_.c_str());
     
+    exe_shell_cmd(result, "echo \"#!/bin/bash\" > %s/.proj_config/exec_before_compile.sh", project_path_.c_str());
+    exe_shell_cmd(result, "echo \"#!/bin/bash\" > %s/.proj_config/exec_after_compile.sh", project_path_.c_str());
+    exe_shell_cmd(result, "chmod u+x %s/.proj_config/exec_before_compile.sh", project_path_.c_str());
+    exe_shell_cmd(result, "chmod u+x %s/.proj_config/exec_after_compile.sh", project_path_.c_str());
+
     string project_config_path = project_path_ + "/.proj_config/project_config.json";
     this->generate_project_config(project_config_path);
     this->load_project(project_path_);

@@ -200,6 +200,8 @@ int CMake::build_project(bool rebuild)
         system("mkdir ./build");
     }
     chdir("./build");
+    // 编译前需要处理的事
+    system("../.proj_config/exec_before_compile.sh");
 
     JsonString compile_method = (*proj_config_)["CompilationMethod"];
     if (compile_method.value() == "release") {
@@ -241,6 +243,9 @@ int CMake::build_project(bool rebuild)
             system("cp -rf ./config/ ./output/debug/bin");
         }
     }
+
+    // 编译结束需要处理的事
+    system("../.proj_config/exec_after_compile.sh");
 
     return 0;
 }
