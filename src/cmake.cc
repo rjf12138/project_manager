@@ -16,11 +16,6 @@ CMake::CMake(Project &proj)
     getcwd(buffer, 1024);
     old_workspace_path_ = buffer;
     chdir(project_path_.c_str());
-
-    // 测试代码
-    (*proj_config_)["MainFileName"] = "main.cc";
-    (*proj_config_)["SourceFileDirectoryListing"].add("hello");
-    (*proj_config_)["SourceFileDirectoryListing"].add("world");
 }
 
 CMake::~CMake(void)

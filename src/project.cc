@@ -159,21 +159,6 @@ Project::load_project(string project_path)
                 break;
             }
         }
-
-        ByteBuffer config_buf;
-        system_utils::Stream project_config;
-        string config_path = project_path_ + "/.proj_config/project_config.json";
-        ret = project_config.open(config_path);
-        if (ret == -1 || project_config.file_size() < 2) {
-            LOG_GLOBAL_ERROR("Load project failed： Can not load project config: %s.", config_path.c_str());
-            return -1;
-        }
-
-        project_config.read(config_buf, project_config.file_size());
-        config_.parse(config_buf);
-
-        JsonString name = config_["Name"];
-        name_ = name.value();
     } else {
         project_path_ = project_path;
         is_new_project = true;
@@ -193,6 +178,20 @@ Project::load_project(string project_path)
         new_project["Path"] = project_path_;
         project_info_["ProjectPaths"].add(new_project);
     }
+
+    ByteBuffer config_buf;
+    system_utils::Stream project_config;
+    string config_path = project_path_ + "/.proj_config/project_config.json";
+    ret = project_config.open(config_path);
+    if (ret == -1 || project_config.file_size() < 2) {
+        LOG_GLOBAL_ERROR("Load project failed： Can not load project config: %s.", config_path.c_str());
+        return -1;
+    }
+    project_config.read(config_buf, project_config.file_size());
+    config_.parse(config_buf);
+
+    JsonString name = config_["Name"];
+    name_ = name.value();
     
     project_info_["RecentOpenProject"]["Name"] = name_;
     project_info_["RecentOpenProject"]["Path"] = project_path_;

@@ -51,6 +51,7 @@ int main(int argc, char **argv)
             std::cout << "PMO_CreateProject" << std::endl;
             proj.create_project();
             chdir(proj.get_project_path().c_str());
+            proj.pull_file();
             system("git init");
             system("git add -A .");
 	        system("git commit -m \"first commit\"");
@@ -201,12 +202,17 @@ int main(int argc, char **argv)
             }
             chdir(proj.get_project_path().c_str());
             string result;
-            exe_shell_cmd(result, "cp ../config/project_manager/tmp/main.cc ./main/");
-            exe_shell_cmd(result, "cp ../config/project_manager/tmp/hello_world_sdk.h ./inc/");
-            exe_shell_cmd(result, "cp ../config/project_manager/tmp/hello_world_sdk.cc ./src/");
-            exe_shell_cmd(result, "cp ../config/project_manager/tmp/basic_header.h ./extern_inc/");
-            exe_shell_cmd(result, "cp -r ../config/project_manager/tmp/hello ./");
-            exe_shell_cmd(result, "cp -r ../config/project_manager/tmp/world ./");
+            exe_shell_cmd(result, "cp %s/project_manager_bin/tmp/main.cc ./main/", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp %s/project_manager_bin/tmp/hello_world_sdk.h ./inc/", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp %s/project_manager_bin/tmp/hello_world_sdk.cc ./src/", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp %s/project_manager_bin/tmp/basic_header.h ./extern_inc/", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp -r %s/project_manager_bin/tmp/hello ./", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp -r %s/project_manager_bin/tmp/world ./", proj.get_project_install_path().c_str());
+
+            // 测试代码
+            (*proj.get_project_config())["MainFileName"] = "main.cc";
+            (*proj.get_project_config())["SourceFileDirectoryListing"].add("hello");
+            (*proj.get_project_config())["SourceFileDirectoryListing"].add("world");
         } break;
         default:
             print_help();
