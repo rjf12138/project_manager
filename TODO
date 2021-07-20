@@ -1,3 +1,2 @@
-1. 先去将config/project_manager_bin 想办法更新到github上，存在问题
-2. 测试更新
-3。 创建项目测试
+1. update_bin.sh 想办法合并到项目管理目录下
+2. 测试更新项目管理会不会覆盖掉，project_path.json文件

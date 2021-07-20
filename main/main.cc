@@ -202,12 +202,12 @@ int main(int argc, char **argv)
             }
             chdir(proj.get_project_path().c_str());
             string result;
-            exe_shell_cmd(result, "cp %s/project_manager_bin/tmp/main.cc ./main/", proj.get_project_install_path().c_str());
-            exe_shell_cmd(result, "cp %s/project_manager_bin/tmp/hello_world_sdk.h ./inc/", proj.get_project_install_path().c_str());
-            exe_shell_cmd(result, "cp %s/project_manager_bin/tmp/hello_world_sdk.cc ./src/", proj.get_project_install_path().c_str());
-            exe_shell_cmd(result, "cp %s/project_manager_bin/tmp/basic_header.h ./extern_inc/", proj.get_project_install_path().c_str());
-            exe_shell_cmd(result, "cp -r %s/project_manager_bin/tmp/hello ./", proj.get_project_install_path().c_str());
-            exe_shell_cmd(result, "cp -r %s/project_manager_bin/tmp/world ./", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp %s/tmp/main.cc ./main/", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp %s/tmp/hello_world_sdk.h ./inc/", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp %s/tmp/hello_world_sdk.cc ./src/", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp %s/tmp/basic_header.h ./extern_inc/", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp -r %s/tmp/hello ./", proj.get_project_install_path().c_str());
+            exe_shell_cmd(result, "cp -r %s/tmp/world ./", proj.get_project_install_path().c_str());
 
             // 测试代码
             (*proj.get_project_config())["MainFileName"] = "main.cc";

@@ -275,8 +275,8 @@ Project::create_project(void)
     exe_shell_cmd(result, "mkdir %s/.proj_config", project_path_.c_str());
     exe_shell_cmd(result, "mkdir %s/.vscode", project_path_.c_str());
     
-    exe_shell_cmd(result, "echo \"#!/bin/bash\" > %s/.proj_config/exec_before_compile.sh", project_path_.c_str());
-    exe_shell_cmd(result, "echo \"#!/bin/bash\" > %s/.proj_config/exec_after_compile.sh", project_path_.c_str());
+    exe_shell_cmd(result, "echo \"#!/bin/bash\n echo \"Compile Start\"\" > %s/.proj_config/exec_before_compile.sh", project_path_.c_str());
+    exe_shell_cmd(result, "echo \"#!/bin/bash\n echo \"Compile End\"\" > %s/.proj_config/exec_after_compile.sh", project_path_.c_str());
     exe_shell_cmd(result, "chmod u+x %s/.proj_config/exec_before_compile.sh", project_path_.c_str());
     exe_shell_cmd(result, "chmod u+x %s/.proj_config/exec_after_compile.sh", project_path_.c_str());
 
@@ -957,6 +957,8 @@ Project::push_file(void)
         LOG_GLOBAL_ERROR("Empty install path.");
         return -1;
     }
+    
+    system("update_project_manager");
 
     JsonString compile_method = config_["CompilationMethod"];
 #ifdef __RJF_WINDOWS__

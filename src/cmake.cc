@@ -240,7 +240,7 @@ int CMake::build_project(bool rebuild)
     }
 
     // 编译结束需要处理的事
-    system("../.proj_config/exec_after_compile.sh");
+    system("./.proj_config/exec_after_compile.sh");
 
     return 0;
 }
