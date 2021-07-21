@@ -238,29 +238,20 @@ int CMake::build_project(bool rebuild)
             system("cp -rf ./config/ ./output/debug/bin");
         }
     }
-
     // 编译结束需要处理的事
     system("./.proj_config/exec_after_compile.sh");
 
     return 0;
 }
 
-// int CMake::install_project(void)
-// {
-//     this->create_install_env();
-//     string cmd = "cmake --install . --prefix ";
-//     cmd += project_install_path_;
-//     system("cmake -DCMAKE_BUILD_TYPE=Release ..");
-// }
-
 int CMake::create_install_env(void)
 {
     JsonString generate_file = (*proj_config_)["GenerateFileType"];
     JsonString compile_method = (*proj_config_)["CompilationMethod"];
-LOG_GLOBAL_DEBUG("");
+
     string include_path = "./local/include/";
     include_path.append(name_);
-LOG_GLOBAL_DEBUG("");
+
     string lib_path = "./local/lib/";
     lib_path += compile_method.value() + "/" + name_ + "/linux";
     // 获取头文件
@@ -268,34 +259,32 @@ LOG_GLOBAL_DEBUG("");
     exe_shell_cmd(result, "ls inc | sed 's/ /\\n/g'");
     ByteBuffer buffer(result);
     vector<ByteBuffer> headers = buffer.split(ByteBuffer("\n"));
-LOG_GLOBAL_DEBUG("");
+
     chdir(project_install_path_.c_str());
     if (access(include_path.c_str(), 0) == -1) {
         exe_shell_cmd_to_stdin("mkdir -p %s", include_path.c_str());
     }
-LOG_GLOBAL_DEBUG(""); 
+
     if (access(lib_path.c_str(), 0) == -1) {
         exe_shell_cmd_to_stdin("mkdir -p %s", lib_path.c_str());
     }
-LOG_GLOBAL_DEBUG("");
-    // exe_shell_cmd_to_stdin("mkdir -p %s", name_.c_str());
-    // exe_shell_cmd_to_stdin("mkdir -p ./local/lib/%s/%s/", compile_method.value().c_str(), name_.c_str());
+    
     if (access("./local/ProjectAssociatedFile.json", 0) == -1) {
         exe_shell_cmd_to_stdin("echo [] > ./local/ProjectAssociatedFile.json");
     }
-LOG_GLOBAL_DEBUG("");
+
     system_utils::Stream config_file;
     config_file.open("./local/ProjectAssociatedFile.json");
     ByteBuffer config_data;
     config_file.read(config_data, config_file.file_size());
-LOG_GLOBAL_DEBUG("");
+
     WeJson obj("{}"), arr("[]");
     obj.add("Name", name_);
     for (std::size_t i = 0; i < headers.size(); ++i) {
         arr.add(headers[i].str());
     }
     obj.add("Include", arr);
-LOG_GLOBAL_DEBUG("");
+
     // 获取生成的库文件
     arr.clear();
     arr.parse("[]");
@@ -315,7 +304,7 @@ LOG_GLOBAL_DEBUG("");
     }
     arr.add(lib_name);
     obj.add("Library", arr);
-LOG_GLOBAL_DEBUG("");
+
     WeJson js_config(config_data);
     for (int i = 0; i < js_config.size(); ++i) {
         if (js_config[i]["Name"] == name_) {
@@ -323,12 +312,12 @@ LOG_GLOBAL_DEBUG("");
         }
     }
     js_config.add(obj);
-LOG_GLOBAL_DEBUG("");
+
     config_file.clear_file();
     config_data.clear();
     config_data.write_string(js_config.format_json());
     config_file.write(config_data, config_data.data_size());
-LOG_GLOBAL_DEBUG("");
+
     chdir(project_path_.c_str());
 
     return 0;

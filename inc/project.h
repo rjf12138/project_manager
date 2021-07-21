@@ -21,7 +21,7 @@ public:
     int modify_config(void);
 
     int generate_project_config(string path);
-    int generate_vscode_config(string path);
+    int generate_vscode_config(void);
     
     int pull_file(void);
     int push_file(void);

@@ -361,68 +361,67 @@ int Project::generate_project_config(string path)
 }
 
 int 
-Project::generate_vscode_config(string path)
+Project::generate_vscode_config(void)
 {
     string result;
-
-    exe_shell_cmd(result, "echo \"{\"                                                                > %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"    // See https://go.microsoft.com/fwlink/?LinkId=733558\"        >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"    // for the documentation about the tasks.json format\"         >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"        \"tasks\": [\"                                             >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            {\"                                                    >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                \"type\": \"shell\",\"                             >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                \"label\": \"compile script\",\"                   >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                \"command\": \"project\",\"                        >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                \"args\": [\"                                      >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                    \"-r\"\"                                       >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                ],\"                                               >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                \"options\": {\"                                   >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                    \"cwd\": \"%s\"\"                              >> %s/tasks.json", path.c_str(), project_path_.c_str());
-    exe_shell_cmd(result, "echo \"                },\"                                               >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                \"group\": {\"                                     >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                    \"kind\": \"build\",\"                         >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                    \"isDefault\": true\"                          >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                }\"                                                >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            }\"                                                    >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"        ],\"                                                       >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"        \"version\": \"2.0.0\"\"                                   >> %s/tasks.json", path.c_str());
-    exe_shell_cmd(result, "echo \"    }\"                                                            >> %s/tasks.json", path.c_str());
-
-    JsonString program_arg = config_["program_run_arg"];
+    chdir(project_path_.c_str());
+    exe_shell_cmd(result, "echo \"{\"                                                                >  ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"    // See https://go.microsoft.com/fwlink/?LinkId=733558\"        >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"    // for the documentation about the tasks.json format\"         >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"        \\\"tasks\\\": [\"                                         >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"            {\"                                                    >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                \\\"type\\\": \\\"shell\\\",\"                     >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                \\\"label\\\": \\\"compile script\\\",\"           >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                \\\"command\\\": \\\"project\\\",\"                >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                \\\"args\\\": [\"                                  >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                    \\\"-r\\\"\"                                   >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                ],\"                                               >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                \\\"options\\\": {\"                               >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                    \\\"cwd\\\": \\\"%s\\\"\"                      >> ./.vscode/tasks.json", project_path_.c_str());
+    exe_shell_cmd(result, "echo \"                },\"                                               >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                \\\"group\\\": {\"                                 >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                    \\\"kind\\\": \\\"build\\\",\"                 >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                    \\\"isDefault\\\": true\"                      >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"                }\"                                                >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"            }\"                                                    >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"        ],\"                                                       >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"        \\\"version\\\": \\\"2.0.0\\\"\"                           >> ./.vscode/tasks.json");
+    exe_shell_cmd(result, "echo \"    }\"                                                            >> ./.vscode/tasks.json");
+    JsonString program_arg = config_["ProgramRunArgs"];
     JsonString program_main_file = config_["MainFileName"];
-    exe_shell_cmd(result, "echo \"{\"                                                                > %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"   // Use IntelliSense to learn about possible attributes.\"       >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"   // Hover to view descriptions of existing attributes.\"         >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"   // For more information, visit: \"                              >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"   // https://go.microsoft.com/fwlink/?linkid=830387\"             >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"    \"version\": \"0.2.0\",\"                                      >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"    \"configurations\": [\"                                        >> %s/launch.json", path.c_str()); 
-    exe_shell_cmd(result, "echo \"        {\"                                                        >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            \"name\": \"gdb_debug\",\"                             >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            \"type\": \"cppdbg\",\"                                >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            \"request\": \"launch\",\"                             >> %s/launch.json", path.c_str());
+    exe_shell_cmd(result, "echo \"{\"                                                                >  ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"   // Use IntelliSense to learn about possible attributes.\"       >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"   // Hover to view descriptions of existing attributes.\"         >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"   // For more information, visit: \"                              >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"   // https://go.microsoft.com/fwlink/?linkid=830387\"             >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"    \\\"version\\\": \\\"0.2.0\\\",\"                              >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"    \\\"configurations\\\": [\"                                    >> ./.vscode/launch.json"); 
+    exe_shell_cmd(result, "echo \"        {\"                                                        >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"            \\\"name\\\": \\\"gdb_debug\\\",\"                     >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"            \\\"type\\\": \\\"cppdbg\\\",\"                        >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"            \\\"request\\\": \\\"launch\\\",\"                     >> ./.vscode/launch.json");
     exe_shell_cmd(result, "echo %s | awk -F[.] '{print $1}'", program_main_file.value());
-    exe_shell_cmd(result, "echo \"            \"program\": \"%s/%s\",\"                              >> %s/launch.json", output_bin_path_.c_str(), result.c_str());
+    exe_shell_cmd(result, "echo \"            \\\"program\\\": \\\"%s/%s\\\",\"                      >> ./.vscode/launch.json", output_bin_path_.c_str(), result.c_str());
     if (program_arg == "") {
-        exe_shell_cmd(result, "echo \"            \"args\": [],\"                                    >> %s/launch.json", path.c_str());
+        exe_shell_cmd(result, "echo \"            \\\"args\\\": [],\"                                >> ./.vscode/launch.json");
     } else {
-        exe_shell_cmd(result, "echo \"            \"args\": [\"%s\"],\"                              >> %s/launch.json", path.c_str(), program_arg.value().c_str());
+        exe_shell_cmd(result, "echo \"            \\\"args\\\": [\\\"%s\\\"],\"                      >> ./.vscode/launch.json", program_arg.value().c_str());
     }
-    exe_shell_cmd(result, "echo \"            \"stopAtEntry\": false,\"                              >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            \"cwd\": \"%s\",\"                                     >> %s/launch.json", output_bin_path_.c_str());
-    exe_shell_cmd(result, "echo \"            \"environment\": [],\"                                 >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            \"externalConsole\": false,\"                          >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            \"MIMode\": \"gdb\",\"                                 >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            \"setupCommands\": [\"                                 >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                {\"                                                >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                    \"description\": \"\",\"                       >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                    \"text\": \"-enable-pretty-printing\",\"       >> %s/launch.json", path.c_str());    
-    exe_shell_cmd(result, "echo \"                    \"ignoreFailures\": true\"                     >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"                }\"                                                >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"            ]\"                                                    >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"        }\"                                                        >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"    ]\"                                                            >> %s/launch.json", path.c_str());
-    exe_shell_cmd(result, "echo \"}\"                                                                >> %s/launch.json", path.c_str());
+    exe_shell_cmd(result, "echo \"            \\\"stopAtEntry\\\": false,\"                          >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"            \\\"cwd\\\": \\\"%s\\\",\"                                     >> ./.vscode/launch.json", output_bin_path_.c_str());
+    exe_shell_cmd(result, "echo \"            \\\"environment\\\": [],\"                             >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"            \\\"externalConsole\\\": false,\"                      >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"            \\\"MIMode\\\": \\\"gdb\\\",\"                         >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"            \\\"setupCommands\\\": [\"                             >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"                {\"                                                >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"                    \\\"description\\\": \"\",\"                   >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"                    \\\"text\\\": \\\"-enable-pretty-printing\\\",\"  >> ./.vscode/launch.json");    
+    exe_shell_cmd(result, "echo \"                    \\\"ignoreFailures\\\": true\"                    >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"                }\"                                                >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"            ]\"                                                    >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"        }\"                                                        >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"    ]\"                                                            >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"}\"                                                                >> ./.vscode/launch.json");
 
     return 0;
 }

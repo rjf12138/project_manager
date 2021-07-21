@@ -1,2 +1,1 @@
-1. update_bin.sh 想办法合并到项目管理目录下
-2. 测试更新项目管理会不会覆盖掉，project_path.json文件
+1. 测试vscode配置文件

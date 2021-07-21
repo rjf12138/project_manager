@@ -43,12 +43,12 @@ int main(int argc, char **argv)
         } break;
         case PMO_Load:
         {
-            std::cout << "PMO_Load" << std::endl;
+            //std::cout << "PMO_Load" << std::endl;
             proj.load_project();
         } break;
         case PMO_CreateProject:
         {
-            std::cout << "PMO_CreateProject" << std::endl;
+            //std::cout << "PMO_CreateProject" << std::endl;
             proj.create_project();
             chdir(proj.get_project_path().c_str());
             proj.pull_file();
@@ -65,7 +65,8 @@ int main(int argc, char **argv)
             CMake cmake(proj);
             cmake.create_top_level_cmakefile();
             cmake.build_project(false);
-            std::cout << "PMO_Rebulid" << std::endl;
+            proj.generate_vscode_config();
+            //std::cout << "PMO_Rebulid" << std::endl;
         } break;
         case PMO_Rebuild:
         {
@@ -76,7 +77,8 @@ int main(int argc, char **argv)
             CMake cmake(proj);
             cmake.create_top_level_cmakefile();
             cmake.build_project(true);
-            std::cout << "PMO_Rebulid" << std::endl;
+            proj.generate_vscode_config();
+            //std::cout << "PMO_Rebulid" << std::endl;
         } break;
         case PMO_ConfigureCFG:
         {
@@ -84,7 +86,7 @@ int main(int argc, char **argv)
                 LOG_GLOBAL_ERROR("Not load any project");
                 return -1;
             }
-            std::cout << "PMO_ConfigureCFG" << std::endl;
+            //std::cout << "PMO_ConfigureCFG" << std::endl;
             proj.modify_config();
         } break;
         case PMO_RunProgram:
@@ -98,7 +100,7 @@ int main(int argc, char **argv)
             string bin_path = proj.get_project_bin_path() + "/" + proj.get_project_name() + " " + prog_arg.value();
             cout << bin_path << endl;
             system(bin_path.c_str());
-            std::cout << "PMO_RunProgram" << std::endl;
+            //std::cout << "PMO_RunProgram" << std::endl;
         } break;
         case PMO_CleanAll:
         {
@@ -108,7 +110,7 @@ int main(int argc, char **argv)
             }
             CMake cmake(proj);
             cmake.clean_project();
-            std::cout << "PMO_CleanAll" << std::endl;
+            //std::cout << "PMO_CleanAll" << std::endl;
         } break;
         case PMO_EnterExeDir:
         {
@@ -118,12 +120,12 @@ int main(int argc, char **argv)
             }
             string result;
             exe_shell_cmd(result, "cd %s;gnome-terminal --tab", proj.get_project_bin_path().c_str());
-            std::cout << "PMO_EnterExeDir" << std::endl;
+            //std::cout << "PMO_EnterExeDir" << std::endl;
         } break;
         case PMO_NewTerminter:
         {
             system("gnome-terminal");
-            std::cout << "PMO_NewTerminter" << std::endl;
+            //std::cout << "PMO_NewTerminter" << std::endl;
         } break;
         case PM0_PrintProjectName:
         {
@@ -134,7 +136,7 @@ int main(int argc, char **argv)
             std::cout << "Project Name: " << proj.get_project_name() << std::endl;
             JsonString jsuuid = (*proj.get_project_config())["UUID"];
             std::cout << "Project UUID: " << jsuuid.value() << std::endl;
-            std::cout << "PM0_PrintProjectName" << std::endl;
+            //std::cout << "PM0_PrintProjectName" << std::endl;
         } break;
         case PMO_AddRemoteGitAddr:
         {
@@ -144,7 +146,7 @@ int main(int argc, char **argv)
             }
             string github_addr;
             ProjectWindow window;
-            int ret = window.get_input(github_addr, "输入远程github仓库地址\n(git remote add origin git@github.com:XXXX/XXXXX.git)");
+            int ret = window.get_input(github_addr, "Input remote github address\n(git@github.com:XXXX/XXXXX.git)");
             if (ret < 0) {
                 LOG_GLOBAL_DEBUG("Get github remote addr failed.");
                 return 0;
@@ -152,7 +154,7 @@ int main(int argc, char **argv)
             string cmd = "git remote add origin ";
             cmd += github_addr;
             system(cmd.c_str());
-            std::cout << "PMO_AddRemoteGitAddr" << std::endl;
+            //std::cout << "PMO_AddRemoteGitAddr" << std::endl;
         } break;
         case PMO_PushToGithub:
         {
@@ -163,7 +165,7 @@ int main(int argc, char **argv)
             system("git add -A .");
             system("git commit -m \"`date`\"");
             system("git push -u origin master");
-            std::cout << "PMO_PushToGithub" << std::endl;
+            //std::cout << "PMO_PushToGithub" << std::endl;
         } break;
         case PMO_PullFromGithub:
         {
@@ -172,7 +174,7 @@ int main(int argc, char **argv)
                 return -1;
             }
             system("git pull");
-            std::cout << "PMO_PullFromGithub" <<std::endl;
+            //std::cout << "PMO_PullFromGithub" <<std::endl;
         } break;
         case PMO_PullFromLocal:
         {
@@ -181,7 +183,7 @@ int main(int argc, char **argv)
                 return -1;
             }
             proj.pull_file();
-            std::cout << "PMO_PullFromLocal" <<std::endl;
+            //std::cout << "PMO_PullFromLocal" <<std::endl;
         } break;
         case PMO_PushToLocal:
         {
@@ -192,7 +194,7 @@ int main(int argc, char **argv)
             CMake cmake(proj);
             cmake.create_install_env();
             proj.push_file();
-            std::cout << "PMO_PushToLocal" <<std::endl;
+            //std::cout << "PMO_PushToLocal" <<std::endl;
         } break;
         case PMO_CreateTmpProject:
         {
