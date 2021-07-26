@@ -49,7 +49,10 @@ int main(int argc, char **argv)
         case PMO_CreateProject:
         {
             //std::cout << "PMO_CreateProject" << std::endl;
-            proj.create_project();
+            int ret = proj.create_project();
+            if (ret == -1) {
+                break;
+            }
             chdir(proj.get_project_path().c_str());
             proj.pull_file();
             system("git init");

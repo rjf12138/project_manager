@@ -233,7 +233,7 @@ Project::create_project(void)
         }
     }
 
-    _window.get_input(project_path_, "The new project is located at");
+    _window.get_input(project_path_, "The new project is located at", ".");
     if (project_path_ == "") {
         LOG_GLOBAL_ERROR("Project path can't be empty");
         return -1;
@@ -400,8 +400,7 @@ Project::generate_vscode_config(void)
     exe_shell_cmd(result, "echo \"            \\\"name\\\": \\\"gdb_debug\\\",\"                     >> ./.vscode/launch.json");
     exe_shell_cmd(result, "echo \"            \\\"type\\\": \\\"cppdbg\\\",\"                        >> ./.vscode/launch.json");
     exe_shell_cmd(result, "echo \"            \\\"request\\\": \\\"launch\\\",\"                     >> ./.vscode/launch.json");
-    exe_shell_cmd(result, "echo %s | awk -F[.] '{print $1}'", program_main_file.value());
-    exe_shell_cmd(result, "echo \"            \\\"program\\\": \\\"%s/%s\\\",\"                      >> ./.vscode/launch.json", output_bin_path_.c_str(), result.c_str());
+    exe_shell_cmd(result, "echo \"            \\\"program\\\": \\\"%s/%s\\\",\"                      >> ./.vscode/launch.json", output_bin_path_.c_str(), name_.c_str());
     if (program_arg == "") {
         exe_shell_cmd(result, "echo \"            \\\"args\\\": [],\"                                >> ./.vscode/launch.json");
     } else {
@@ -414,7 +413,7 @@ Project::generate_vscode_config(void)
     exe_shell_cmd(result, "echo \"            \\\"MIMode\\\": \\\"gdb\\\",\"                         >> ./.vscode/launch.json");
     exe_shell_cmd(result, "echo \"            \\\"setupCommands\\\": [\"                             >> ./.vscode/launch.json");
     exe_shell_cmd(result, "echo \"                {\"                                                >> ./.vscode/launch.json");
-    exe_shell_cmd(result, "echo \"                    \\\"description\\\": \"\",\"                   >> ./.vscode/launch.json");
+    exe_shell_cmd(result, "echo \"                    \\\"description\\\": \\\"\\\",\"                  >> ./.vscode/launch.json");
     exe_shell_cmd(result, "echo \"                    \\\"text\\\": \\\"-enable-pretty-printing\\\",\"  >> ./.vscode/launch.json");    
     exe_shell_cmd(result, "echo \"                    \\\"ignoreFailures\\\": true\"                    >> ./.vscode/launch.json");
     exe_shell_cmd(result, "echo \"                }\"                                                >> ./.vscode/launch.json");
