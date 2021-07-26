@@ -219,6 +219,10 @@ Project::check_project_opened(void)
 int 
 Project::create_project(void)
 {
+    name_ = "";
+    project_path_ = "";
+    is_project_opened_ = false;
+
     _window.get_input(name_, "New Project Name");
     if (name_ == "") {
         LOG_GLOBAL_ERROR("Project name can't be empty");
