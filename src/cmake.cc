@@ -97,7 +97,7 @@ int CMake::create_top_level_cmakefile(void)
 
     // 添加第三方库
     for (int i = 0; i < libs.size(); ++i) {
-        JsonString target_lib = lib_dirs[i];
+        JsonString target_lib = libs[i];
         cmakefile_stream << "target_link_libraries(" << name_ << " PRIVATE " << target_lib.value() << ")" << std::endl;
     }
     

@@ -945,6 +945,10 @@ Project::pull_file(void)
                 cmd += library_path + "/" + proj_name.value() + "/linux/" + " ";
                 cmd += project_path_ + "/lib/" + compile_method.value() + "/";
                 system(cmd.c_str());
+
+                // 往配置内添加库文件
+                config_["LibraryListing"]["debug"].add(proj_name.value());
+                config_["LibraryListing"]["release"].add(proj_name.value());
             }
         }
     }
