@@ -151,15 +151,18 @@ int CMake::create_sub_cmakefile(string sub_module_path, string project_name)
         exe_shell_cmd(result, cmd.c_str());
         ByteBuffer buff(result);
         vector<ByteBuffer> sources = buff.split(ByteBuffer("\n"));
+        cmakefile_stream << "target_sources(" << name_ << " PRIVATE";
         for (std::size_t i = 0;i < sources.size(); ++i) {
-            cmakefile_stream << "target_sources(" << name_ << " PRIVATE \n\t\t" << sub_module_abs_path << "/" << sources[i].str() << ")" << std::endl; 
-        }   
+             cmakefile_stream << "\n\t\t" << sub_module_abs_path << "/" << sources[i].str();
+        }
+        cmakefile_stream << ")" << std::endl; 
     }
 
     ByteBuffer buffer;
     buffer.write_string(cmakefile_stream.str());
     system_utils::Stream sub_cmakefile;
     sub_cmakefile.open("./CMakeLists.txt");
+    sub_cmakefile.clear_file();
     sub_cmakefile.write(buffer, buffer.data_size());
 
     chdir(project_path_.c_str()); // 切回项目目录下
