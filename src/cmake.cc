@@ -149,7 +149,11 @@ int CMake::create_sub_cmakefile(string sub_module_path, string project_name)
     if (stoi(result) > 0) {
         string cmd = "find ./ -name \"*.cc\"";
         exe_shell_cmd(result, cmd.c_str());
-        cmakefile_stream << "target_sources(" << name_ << " PRIVATE \n\t\t" << sub_module_abs_path << "/" << result << ")" << std::endl;    
+        ByteBuffer buff(result);
+        vector<ByteBuffer> sources = buff.split(ByteBuffer("\n"));
+        for (std::size_t i = 0;i < sources.size(); ++i) {
+            cmakefile_stream << "target_sources(" << name_ << " PRIVATE \n\t\t" << sub_module_abs_path << "/" << sources[i].str() << ")" << std::endl; 
+        }   
     }
 
     ByteBuffer buffer;
