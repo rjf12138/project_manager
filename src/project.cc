@@ -892,6 +892,7 @@ Project::modify_config(void)
             buffer.write_string(config_.format_json());
             system_utils::Stream project_config;
             project_config.open(project_config_path);
+            project_config.clear_file();
             project_config.write(buffer, buffer.data_size());
             break;
         }
