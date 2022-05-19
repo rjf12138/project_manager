@@ -41,17 +41,39 @@ int CMake::create_top_level_cmakefile(void)
     cmakefile_stream << "# 设置项目名称" << std::endl;
     cmakefile_stream << "project(" << name_ << ")" << std::endl << std::endl;
 
-    cmakefile_stream << "set(CMAKE_DEBUG_POSTFIX d)" << std::endl << std::endl;
-    cmakefile_stream << "# 指定c++标准: 默认是 c++11" << std::endl;
-    cmakefile_stream << "add_library(" << name_ << "_compiler_flags INTERFACE)" << std::endl;
-    cmakefile_stream << "target_compile_features(" << name_ << "_compiler_flags INTERFACE cxx_std_11)" << std::endl;
+    // cmakefile_stream << "set(CMAKE_DEBUG_POSTFIX d)" << std::endl << std::endl;
+    // cmakefile_stream << "# 指定c++标准: 默认是 c++11" << std::endl;
+    // cmakefile_stream << "add_library(" << name_ << "_compiler_flags INTERFACE)" << std::endl;
+    // cmakefile_stream << "target_compile_features(" << name_ << "_compiler_flags INTERFACE cxx_std_11)" << std::endl;
+    cmakefile_stream << "add(CMAKE_DEBUG_POSTFIX d)" << std::endl << std::endl;
 
-    cmakefile_stream << "# 设置 c++ 警告标志" << std::endl;
-    cmakefile_stream << "set(gcc_like_cxx \"$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU>\")" << std::endl;
-    cmakefile_stream << "set(msvc_cxx \"$<COMPILE_LANG_AND_ID:CXX,MSVC>\")" << std::endl << std::endl;
-    cmakefile_stream << "target_compile_options("<< name_ << "_compiler_flags INTERFACE" << std::endl;
-    cmakefile_stream << "\t\t$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Wextra;-Wshadow;-Wformat=2;-Wunused>>" << std::endl;
-    cmakefile_stream << "\t\t$<${msvc_cxx}:$<BUILD_INTERFACE:-W3>>)" << std::endl << std::endl;
+    // cmakefile_stream << "# 设置 c++ 警告标志" << std::endl;
+    // cmakefile_stream << "set(gcc_like_cxx \"$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU>\")" << std::endl;
+    // cmakefile_stream << "set(msvc_cxx \"$<COMPILE_LANG_AND_ID:CXX,MSVC>\")" << std::endl << std::endl;
+    // cmakefile_stream << "target_compile_options("<< name_ << "_compiler_flags INTERFACE" << std::endl;
+    // cmakefile_stream << "\t\t$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-rdynamic;-Wextra;-Wshadow;-Wformat=2;-Wunused>>" << std::endl;
+    // cmakefile_stream << "\t\t$<${msvc_cxx}:$<BUILD_INTERFACE:-W3>>)" << std::endl << std::endl;
+
+    cmakefile_stream << "set(CXX_FLAGS" << std::endl;
+    cmakefile_stream << "    -g" << std::endl;
+    cmakefile_stream << "    # -DVALGRIND" << std::endl;
+    cmakefile_stream << "    -DCHECK_PTHREAD_RETURN_VALUE" << std::endl;
+    cmakefile_stream << "    -D_FILE_OFFSET_BITS=64" << std::endl;
+    cmakefile_stream << "    -Wall" << std::endl;
+    cmakefile_stream << "    -Wextra" << std::endl;
+    cmakefile_stream << "    -Werror" << std::endl;
+    cmakefile_stream << "    -Wconversion" << std::endl;
+    cmakefile_stream << "    -Wno-unused-parameter" << std::endl;
+    cmakefile_stream << "    -Wold-style-cast" << std::endl;
+    cmakefile_stream << "    -Woverloaded-virtual" << std::endl;
+    cmakefile_stream << "    -Wpointer-arith" << std::endl;
+    cmakefile_stream << "    -Wshadow" << std::endl;
+    cmakefile_stream << "    -Wwrite-strings" << std::endl;
+    cmakefile_stream << "    -march=native" << std::endl;
+    cmakefile_stream << "    # -MMD" << std::endl;
+    cmakefile_stream << "    -rdynamic" << std::endl;
+    cmakefile_stream << "    )" << std::endl;
+    cmakefile_stream << "string(REPLACE \";\" \" \" CMAKE_CXX_FLAGS \"${CXX_FLAGS}\")" << std::endl << std::endl;
 
     cmakefile_stream << "# 设置生成文件输出路径" << std::endl;
     if (generate_file_type.value() == "exe") {

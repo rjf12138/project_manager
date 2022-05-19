@@ -50,7 +50,14 @@
         "streambuf": "cpp",
         "typeinfo": "cpp",
         "any": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "bitset": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "csignal": "cpp",
+        "regex": "cpp",
+        "numbers": "cpp",
+        "cinttypes": "cpp"
     },
     "git.ignoreLimitWarning": true
 }
