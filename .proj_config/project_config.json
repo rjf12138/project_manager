@@ -1,0 +1,45 @@
+{
+	"AssociatedProject": [
+		"gtest"
+	],
+	"ChooseCompiler": [
+		{
+			"CompilerName": "g++",
+			"DebugOption": "-O0 -Wall -g -ggdb -std=c++11",
+			"ReleaseOption": "-O2 -Wall -std=c++11"
+		}
+	],"CompilationMethod": "debug",
+	"CompilationParameters": "-O0 -Wall -g -ggdb -std=c++11",
+	"CurrentCompiler": "g++",
+	"ExportFile": [
+		"gtest"
+	],
+	"GenerateFileType": "exe",
+	"HeaderFileDirectoryListing": [
+		
+	],
+	"LibraryDirectoryListing": {
+		"debug": [
+			
+		],
+		"release": [
+			
+		]
+	},
+	"LibraryListing": {
+		"debug": [
+			
+		],
+		"release": [
+			
+		]
+	},
+	"MainFileName": "",
+	"Name": "project_manager",
+	"Path": "/home/ruanjian/workspace/project_v/project_manager",
+	"ProgramRunArgs": "",
+	"SourceFileDirectoryListing": [
+		"src"
+	],
+	"UUID": "bd711aa1-8628-4ab0-a70c-191a7f480ceb"
+}
