@@ -1,1 +1,0 @@
-/usr/bin/c++ -g -DCHECK_PTHREAD_RETURN_VALUE -D_FILE_OFFSET_BITS=64 -march=native -rdynamic -g CMakeFiles/project_manager.dir/main/main.cc.o -o project_manager   -L/home/ruanjian/workspace/project_v/project_manager/./lib/debug 
