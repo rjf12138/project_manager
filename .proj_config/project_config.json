@@ -1,8 +1,10 @@
 {
 	"AssociatedProject": [
-		"gtest"
-	],
-	"ChooseCompiler": [
+		"gtest",
+		"basic",
+		"system",
+		"util"
+	],"ChooseCompiler": [
 		{
 			"CompilerName": "g++",
 			"DebugOption": "-O0 -Wall -g -ggdb -std=c++11",
@@ -34,7 +36,7 @@
 			
 		]
 	},
-	"MainFileName": "",
+	"MainFileName": "main.cc",
 	"Name": "project_manager",
 	"Path": "/home/ruanjian/workspace/project_v/project_manager",
 	"ProgramRunArgs": "",
