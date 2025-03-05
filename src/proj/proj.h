@@ -1,6 +1,7 @@
 #ifndef __PROJ_H__
 #define __PROJ_H__
-#include "config.h"
+#include "proj_config.h"
+#include "proj_dir.h"
 
 class Proj {
 public:
@@ -12,6 +13,7 @@ public:
 
 private:
     ProjConfig cfg_;
+    ProjDir dir_;
 };
 
 class ProjManager {
