@@ -33,8 +33,6 @@ public:
 
     // 获取目录信息
     ProjDirInfo get_proj_dir_info(void);
-    // 根据当前目录读取子目录列表
-    std::vector<std::string> proj_dir_list(const std::string &parent_dir);
 
 private:
     // 根据当前目录生成项目目录信息

@@ -12,31 +12,32 @@ ProjDir::init_proj_dir(const std::string &proj_name, const std::string &proj_gen
     RETURN_FUNC_LT(generate_path_dir.open_dir(proj_generate_path), 0, -1);
 
     std::string proj_path = generate_path_dir.get_abs_path(proj_generate_path) + "/" +proj_name;
-    if (generate_path_dir.exist(proj_path, true) == true) {
-        LOG_GLOBAL_WARN("%s is exist", proj_path.c_str());
-        return -1;
-    }
-
-    RETURN_FUNC_LT(generate_path_dir.create(proj_name, os::EFileType_Dir), 0, -1);
-
+    proj_dir_info_.proj_path = proj_path;
+    proj_dir_info_.program_config_path = proj_path + "/config";
+    proj_dir_info_.program_debug_lib_path = proj_path + "/lib/debug";
+    proj_dir_info_.program_debug_output_bin_path = proj_path + "/output/debug/bin";
+    proj_dir_info_.program_debug_output_lib_path = proj_path + "/output/debug/lib";
+    proj_dir_info_.program_doc_path = proj_path + "/doc";
+    proj_dir_info_.program_extern_inc_path = proj_path + "/extern_inc";
+    proj_dir_info_.program_inc_path = proj_path + "/inc";
+    proj_dir_info_.program_main_path = proj_path + "/main";
+    proj_dir_info_.program_release_lib_path = proj_path + "/lib/release";
+    proj_dir_info_.program_release_output_bin_path = proj_path + "/output/release/bin";
+    proj_dir_info_.program_release_output_lib_path = proj_path + "/output/release/lib";
+    
+    return this->create_dir_from_dir_info(proj_dir_info_);
 }
 
 int 
 ProjDir::load_proj_dir(const std::string &proj_path)
 {
-
+    return this->generate_dir_info_from_dir(proj_path);
 }
 
 ProjDirInfo 
 ProjDir::get_proj_dir_info(void)
 {
-
-}
-
-std::vector<std::string> 
-ProjDir::proj_dir_list(const std::string &parent_dir)
-{
-
+    return proj_dir_info_;
 }
 
 int 

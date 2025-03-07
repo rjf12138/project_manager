@@ -1,6 +1,7 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 #include "basic_head.h"
+#include "basic/wejson.h"
 
 // 编译器配置
 struct CompilerCfg {
@@ -42,8 +43,12 @@ public:
     int init_cfg(void);
     int load_cfg(const std::string &cfg_path);
     
-    ProjConfig get_proj_cfg(void);
-    void save_proj_cfg(ProjConfig cfg);
+    ProjConfig get_cfg(void);
+    void save_cfg(ProjConfig cfg);
+
+private:
+    int convert_proj_cfg_to_json(ProjConfig cfg, basic::WeJson &cfg_json);
+    int convert_json_to_proj_cfg(const std::string &cfg_json, ProjConfig &cfg);
 
 private:
     ProjConfig cfg_;
