@@ -157,6 +157,131 @@ func TestGenerateCMakeLinksDepsWithoutTargets(t *testing.T) {
 	}
 }
 
+// 单目标时 generate_type 必须真正决定生成类型（修复 targets 与 generate_type 不一致）。
+func TestGenerateCMakeGenerateTypeControlsSingleTarget(t *testing.T) {
+	tmp := t.TempDir()
+	full, err := CreateProject("GenType", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, err := LoadProject(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := proj.Config()
+	cfg.Targets = []Target{{Name: "GenType", Type: "static_lib"}}
+
+	cases := []struct {
+		gt   GenerateType
+		want string
+	}{
+		{GenerateTypeExecutable, "add_executable(GenType"},
+		{GenerateTypeStaticLib, "add_library(GenType STATIC"},
+		{GenerateTypeSharedLib, "add_library(GenType SHARED"},
+	}
+	for _, tc := range cases {
+		cfg.GenerateType = tc.gt
+		out := GenerateCMakeLists(cfg, proj.DirInfo())
+		if !strings.Contains(out, tc.want) {
+			t.Errorf("generate_type=%s should produce %q:\n%s", tc.gt, tc.want, out)
+		}
+	}
+}
+
+// targets 为空时也应按 generate_type 生成对应类型的目标。
+func TestGenerateCMakeGenerateTypeWithoutTargets(t *testing.T) {
+	tmp := t.TempDir()
+	full, err := CreateProject("NoTargetsLib", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, err := LoadProject(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := proj.Config()
+	cfg.Targets = nil
+
+	cfg.GenerateType = GenerateTypeStaticLib
+	out := GenerateCMakeLists(cfg, proj.DirInfo())
+	if !strings.Contains(out, "add_library(NoTargetsLib STATIC") {
+		t.Errorf("static lib target missing:\n%s", out)
+	}
+	if strings.Contains(out, "add_executable(") {
+		t.Errorf("unexpected executable target for static_lib:\n%s", out)
+	}
+
+	cfg.GenerateType = GenerateTypeSharedLib
+	out = GenerateCMakeLists(cfg, proj.DirInfo())
+	if !strings.Contains(out, "add_library(NoTargetsLib SHARED") {
+		t.Errorf("shared lib target missing:\n%s", out)
+	}
+}
+
+// 多目标配置属于高级用法，仍由每个 target 的 type 决定，generate_type 不覆盖。
+func TestGenerateCMakeMultiTargetsKeepOwnTypes(t *testing.T) {
+	tmp := t.TempDir()
+	full, err := CreateProject("Multi", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, err := LoadProject(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := proj.Config()
+	cfg.GenerateType = GenerateTypeExecutable
+	cfg.Targets = []Target{
+		{Name: "app", Type: "executable"},
+		{Name: "core", Type: "static_lib"},
+	}
+
+	out := GenerateCMakeLists(cfg, proj.DirInfo())
+	if !strings.Contains(out, "add_executable(app") {
+		t.Errorf("executable target missing:\n%s", out)
+	}
+	if !strings.Contains(out, "add_library(core STATIC") {
+		t.Errorf("static lib target missing:\n%s", out)
+	}
+}
+
+// SaveConfig 保存时同步单目标的类型，避免配置文件里 generate_type 与 targets 长期不一致。
+func TestSaveConfigSyncsSingleTargetType(t *testing.T) {
+	tmp := t.TempDir()
+	full, err := CreateProject("Sync", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, err := LoadProject(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := proj.Config()
+	cfg.Targets = []Target{{Name: "Sync", Type: "static_lib"}}
+	cfg.GenerateType = GenerateTypeExecutable
+	if err := proj.SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded, err := LoadProject(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := reloaded.Config()
+	if len(got.Targets) != 1 || got.Targets[0].Type != "executable" {
+		t.Errorf("targets = %+v, want single executable target", got.Targets)
+	}
+
+	out := GenerateCMakeLists(got, reloaded.DirInfo())
+	if !strings.Contains(out, "add_executable(Sync") {
+		t.Errorf("expected executable after save:\n%s", out)
+	}
+}
+
 func TestScanMainFiles(t *testing.T) {
 	tmp := t.TempDir()
 	full, err := CreateProject("Scan", tmp)

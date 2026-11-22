@@ -15,6 +15,43 @@ func cmakePath(dir string) string {
 	return "${CMAKE_SOURCE_DIR}/" + filepath.ToSlash(dir)
 }
 
+// targetTypeFromGenerateType 把 generate_type 映射为 targets[].type；无效值返回 false。
+func targetTypeFromGenerateType(gt GenerateType) (string, bool) {
+	switch gt {
+	case GenerateTypeExecutable:
+		return "executable", true
+	case GenerateTypeStaticLib:
+		return "static_lib", true
+	case GenerateTypeSharedLib:
+		return "share_lib", true
+	}
+	return "", false
+}
+
+// effectiveTargets 返回实际参与 CMake 生成的目标列表：
+//   - targets 有多个目标：属于多目标配置，原样使用（generate_type 不适用）；
+//   - targets 只有一个目标：用 generate_type 覆盖其类型（TUI 只暴露 generate_type）；
+//   - targets 为空：按 generate_type 生成一个默认目标（缺省为可执行文件）。
+func effectiveTargets(cfg ProjectConfig) []Target {
+	if len(cfg.Targets) > 1 {
+		return cfg.Targets
+	}
+
+	typ, ok := targetTypeFromGenerateType(cfg.GenerateType)
+	if len(cfg.Targets) == 1 {
+		target := cfg.Targets[0]
+		if ok {
+			target.Type = typ
+		}
+		return []Target{target}
+	}
+
+	if !ok {
+		typ = "executable"
+	}
+	return []Target{{Name: cfg.Name, Type: typ}}
+}
+
 // GenerateCMakeLists 根据项目配置生成 CMakeLists.txt 内容
 func GenerateCMakeLists(cfg ProjectConfig, dirInfo ProjectDirInfo) string {
 	var sb strings.Builder
@@ -119,11 +156,10 @@ func GenerateCMakeLists(cfg ProjectConfig, dirInfo ProjectDirInfo) string {
 	}
 	sb.WriteString("\n")
 
-	// 构建目标
+	// 构建目标：targets 为空 / 单目标时由 generate_type 决定类型，多目标时按 targets 原样生成
+	targets := effectiveTargets(cfg)
 	sb.WriteString("# Build targets\n")
-	hasTargets := false
-	for _, target := range cfg.Targets {
-		hasTargets = true
+	for _, target := range targets {
 		switch target.Type {
 		case "executable":
 			sb.WriteString(fmt.Sprintf("add_executable(%s", target.Name))
@@ -145,18 +181,8 @@ func GenerateCMakeLists(cfg ProjectConfig, dirInfo ProjectDirInfo) string {
 		}
 	}
 
-	// 如果没有定义 targets，创建默认可执行目标
-	if !hasTargets {
-		sb.WriteString(fmt.Sprintf("add_executable(%s\n", cfg.Name))
-		if cfg.MainFile != "" {
-			sb.WriteString(fmt.Sprintf("    ${CMAKE_SOURCE_DIR}/main/%s\n", cfg.MainFile))
-		}
-		sb.WriteString("    ${SRC_FILES}\n")
-		sb.WriteString(")\n\n")
-	}
-
 	// 为每个 target 添加头文件目录和链接库
-	for _, target := range cfg.Targets {
+	for _, target := range targets {
 		sb.WriteString(fmt.Sprintf("# Include dirs for target %s\n", target.Name))
 		for _, inc := range cfg.IncludeDirs {
 			sb.WriteString(fmt.Sprintf("target_include_directories(%s PRIVATE ${CMAKE_SOURCE_DIR}/%s)\n",
@@ -191,13 +217,9 @@ func GenerateCMakeLists(cfg ProjectConfig, dirInfo ProjectDirInfo) string {
 
 	// 旧版兼容：legacy deps（依赖安装时写入的链接库）
 	if len(cfg.LegacyDeps.Libs) > 0 {
-		targetNames := make([]string, 0, len(cfg.Targets))
-		for _, target := range cfg.Targets {
+		targetNames := make([]string, 0, len(targets))
+		for _, target := range targets {
 			targetNames = append(targetNames, target.Name)
-		}
-		// 未定义 targets 时使用默认可执行目标名
-		if len(targetNames) == 0 {
-			targetNames = append(targetNames, cfg.Name)
 		}
 
 		sb.WriteString("# Legacy dependencies\n")

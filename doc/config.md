@@ -43,9 +43,9 @@
 | `build_mode` | string | `"debug"` | `debug` 或 `release`，决定 `output/<mode>/`、`lib/<mode>/` 与编译选项 |
 | `main_file` | string | `"main.cc"` | `main/` 目录下的入口文件名 |
 | `run_args` | string | 空 | `pm run` 传给程序的参数（`pm run App -- args` 会写回这里） |
-| `generate_type` | string | `"executable"` | ⚠️ **当前不参与生成**，见下方「已知限制」 |
+| `generate_type` | string | `"executable"` | `executable` / `static_lib` / `share_lib`；**单目标或未配置 `targets` 时决定生成类型** |
 | `build_options` | object | 见下 | 按构建模式的宏与优化选项 |
-| `targets` | []Target | 一个可执行目标 | **真正决定生成什么目标**，见下 |
+| `targets` | []Target | 一个可执行目标 | 多目标配置；单目标时其 `type` 由 `generate_type` 同步，见下 |
 
 `build_options` 默认值：
 
@@ -155,7 +155,7 @@
 | `deps.inc_dirs` / `extra_include_dirs` | 同上（前者相对路径加前缀，后者原样） |
 | `lib_dir` + `build_mode` | `link_directories(${CMAKE_SOURCE_DIR}/lib/<mode>)` |
 | `deps.lib_dirs` / `extra_lib_dirs` | `link_directories(...)` |
-| `targets[]` | `add_executable` / `add_library(STATIC\|SHARED)` |
+| `targets[]` / `generate_type` | `add_executable` / `add_library(STATIC\|SHARED)`；单目标或未配置 `targets` 时以 `generate_type` 为准，多目标时按各自 `type` |
 | `deps.libs` | `target_link_libraries` |
 | `main_file` | `targets[].source_files` 为空时作为入口源文件 |
 
@@ -170,7 +170,7 @@
 |---|---|---|
 | Name / Version / Path | `name` / `version` / `path` | —（只读展示） |
 | Build Mode | `build_mode` | `b` 切换 |
-| Generate Type | `generate_type` | `g` 切换（⚠️ 见已知限制） |
+| Generate Type | `generate_type` | `g` 切换（单目标时决定实际生成类型） |
 | C++ Standard | `cxx_standard` | — |
 | Main File | `main_file` | `f` 在 `main/` 下扫描到的文件间循环 |
 | Dependencies | `dependencies` | `enter` 进入依赖管理页（查看状态 / 安装 / 重装 / 卸载） |
@@ -187,7 +187,6 @@
 
 | 项 | 说明 |
 |---|---|
-| `generate_type` | **当前不参与 CMake 生成**。TUI 里可以切换并保存，但实际生成的目标由 `targets` 决定。要把项目做成库，请直接改 `targets[].type` 为 `static_lib` / `share_lib`。 |
 | `deps.src_dirs` | 预留字段，代码中未被使用。 |
 | `build_system` | 预留字段，目前只支持 `cmake`。 |
 | 绝对路径 | 只有 `extra_include_dirs` / `extra_lib_dirs` 支持绝对路径；其余目录字段都会被拼上 `${CMAKE_SOURCE_DIR}/`。 |

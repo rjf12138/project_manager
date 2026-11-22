@@ -624,8 +624,15 @@ func LoadProject(projPath string) (*Project, error) {
 
 // ===================== 保存配置 =====================
 
-// SaveConfig 保存配置到文件
+// SaveConfig 保存配置到文件。
+// 单目标时把 targets[0].type 同步为 generate_type，保证配置文件内部一致
+// （多目标配置由 targets 决定类型，generate_type 不参与）。
 func (p *Project) SaveConfig(cfg ProjectConfig) error {
+	if len(cfg.Targets) == 1 {
+		if typ, ok := targetTypeFromGenerateType(cfg.GenerateType); ok {
+			cfg.Targets[0].Type = typ
+		}
+	}
 	p.cfg = cfg
 	return p.writeConfig()
 }
