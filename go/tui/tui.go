@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -98,6 +99,9 @@ type MainModel struct {
 	depsCursor int                // 依赖列表游标
 	pkgCursor  int                // 仓库包列表游标
 	repoPkgs   []core.PackageInfo // 本地仓库中的包（进入安装页时加载）
+
+	// openInEditorPath 记录退出 TUI 后要用编辑器打开的项目路径（pm -l 回车选择时设置）
+	openInEditorPath string
 }
 
 type buildDoneMsg struct {
@@ -706,13 +710,16 @@ func (m MainModel) activateListItem() (tea.Model, tea.Cmd) {
 	if m.cursor >= len(paths) {
 		return m, nil
 	}
-	m.solution.SetActiveProject(paths[m.cursor])
+	selected := paths[m.cursor]
+	m.solution.SetActiveProject(selected)
 	if m.directMode {
+		// pm -l 直接模式：切换活动项目后退出，并由 RunProjectList 用编辑器打开
+		m.openInEditorPath = selected
 		return m, tea.Quit
 	}
 	m.page = PageMainMenu
 	m.cursor = 0
-	m.statusMsg = "Switched to: " + m.solution.ProjectNameFromPath(paths[m.cursor])
+	m.statusMsg = "Switched to: " + m.solution.ProjectNameFromPath(selected)
 	m.statusType = "success"
 	return m, nil
 }
@@ -1457,11 +1464,12 @@ func (m MainModel) renderListPage() string {
 	}
 
 	if m.directMode {
-		sb.WriteString(helpStyle.Render("↑↓ move • enter select • q quit"))
+		sb.WriteString(helpStyle.Render("↑↓ move • enter open in VS Code • q quit"))
+		sb.WriteString("\n" + helpStyle.Render("enter switches the active project and opens it in VS Code"))
 	} else {
 		sb.WriteString(helpStyle.Render("↑↓ move • enter select • esc back"))
+		sb.WriteString("\n" + helpStyle.Render("select to switch active project"))
 	}
-	sb.WriteString("\n" + helpStyle.Render("select to switch active project"))
 	return sb.String()
 }
 
@@ -1605,7 +1613,36 @@ func RunTUI(s *core.Solution) error {
 	return err
 }
 
-// RunProjectList 直接进入项目列表页，q/esc 直接退出
+// openInEditor 用编辑器（默认 VS Code 的 code 命令）打开项目目录。
+// 命令不存在或启动失败时返回错误，由调用方决定如何提示。
+// 可通过 PM_EDITOR 环境变量指定其它编辑器命令，如 PM_EDITOR="code-insiders"。
+func openInEditor(path string) error {
+	exe, extraArgs := editorCommand()
+	bin, err := exec.LookPath(exe)
+	if err != nil {
+		return fmt.Errorf("editor %q not found in PATH (VS Code users: install it or put 'code' in PATH; you can also set PM_EDITOR)", exe)
+	}
+
+	args := append(extraArgs, path)
+	cmd := exec.Command(bin, args...)
+	// 后台启动，不等待：code CLI 会把请求交给 VS Code 实例后自行退出
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to launch %s: %w", exe, err)
+	}
+	return nil
+}
+
+// editorCommand 返回打开项目的编辑器命令与附加参数（默认 code，可用 PM_EDITOR 覆盖）
+func editorCommand() (string, []string) {
+	if v := strings.TrimSpace(os.Getenv("PM_EDITOR")); v != "" {
+		fields := strings.Fields(v)
+		return fields[0], fields[1:]
+	}
+	return "code", nil
+}
+
+// RunProjectList 直接进入项目列表页，q/esc 直接退出；回车选择项目后
+// 切换活动项目并调用编辑器（默认 VS Code）打开。
 func RunProjectList(s *core.Solution) error {
 	m := NewMainModel(s)
 	m.directMode = true
@@ -1615,8 +1652,18 @@ func RunProjectList(s *core.Solution) error {
 		return nil
 	}
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	_, err := p.Run()
-	return err
+	final, err := p.Run()
+	if err != nil {
+		return err
+	}
+	if mm, ok := final.(MainModel); ok && mm.openInEditorPath != "" {
+		fmt.Printf("Opening %s in editor...\n", mm.openInEditorPath)
+		if err := openInEditor(mm.openInEditorPath); err != nil {
+			// 活动项目已切换成功，仅提示打开编辑器失败，不影响退出码
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		}
+	}
+	return nil
 }
 
 // RunConfig 直接进入配置页面，q/esc 直接退出

@@ -1,11 +1,13 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rjf12138/project_manager/core"
@@ -362,6 +364,128 @@ func TestNormalModeEscReturnsToMainMenu(t *testing.T) {
 	if isQuit(cmd) {
 		t.Errorf("esc outside direct mode should not quit")
 	}
+}
+
+// pm -l 直接模式下，回车选择项目：切换活动项目、退出，并记录待打开路径。
+func TestDirectModeListEnterRecordsOpenPathAndQuits(t *testing.T) {
+	m, projPath := newTestModel(t)
+	m.directMode = true
+	m.page = PageList
+	m.cursor = 0
+
+	model, cmd := m.Update(keyMsg(tea.KeyEnter))
+	got := model.(MainModel)
+
+	if !isQuit(cmd) {
+		t.Fatalf("enter in -l direct mode should quit the program")
+	}
+	if got.solution.ActiveProjectPath() != projPath {
+		t.Errorf("active project = %q, want %q", got.solution.ActiveProjectPath(), projPath)
+	}
+	if got.openInEditorPath != projPath {
+		t.Errorf("openInEditorPath = %q, want %q", got.openInEditorPath, projPath)
+	}
+}
+
+// 完整 TUI 的项目列表回车只切换活动项目并返回主菜单，不记录打开路径。
+func TestListEnterSwitchesActiveWithoutOpen(t *testing.T) {
+	m, projPath := newTestModel(t)
+	m.page = PageList
+	m.cursor = 0
+
+	model, cmd := m.Update(keyMsg(tea.KeyEnter))
+	got := model.(MainModel)
+
+	if got.page != PageMainMenu {
+		t.Errorf("page = %v, want PageMainMenu", got.page)
+	}
+	if isQuit(cmd) {
+		t.Errorf("enter outside direct mode should not quit")
+	}
+	if got.openInEditorPath != "" {
+		t.Errorf("openInEditorPath = %q, want empty", got.openInEditorPath)
+	}
+	if got.solution.ActiveProjectPath() != projPath {
+		t.Errorf("active project = %q, want %q", got.solution.ActiveProjectPath(), projPath)
+	}
+}
+
+// ===================== 编辑器打开（pm -l 退出后） =====================
+
+// 找不到编辑器命令时应返回错误，而不是静默失败。
+func TestOpenInEditorCommandNotFound(t *testing.T) {
+	t.Setenv("PM_EDITOR", "")
+	t.Setenv("PATH", t.TempDir()) // 空目录，确保没有 code
+
+	err := openInEditor("/some/project")
+	if err == nil {
+		t.Fatal("expected error when editor command is missing")
+	}
+	if !strings.Contains(err.Error(), "not found in PATH") {
+		t.Errorf("error = %q, want 'not found in PATH'", err)
+	}
+}
+
+// 默认编辑器（code）存在时会被调用，并收到项目路径参数。
+func TestOpenInEditorLaunchesCode(t *testing.T) {
+	binDir, marker := t.TempDir(), filepath.Join(t.TempDir(), "args.txt")
+	writeFakeEditor(t, binDir, "code", marker)
+
+	t.Setenv("PM_EDITOR", "")
+	t.Setenv("PATH", binDir)
+
+	proj := "/tmp/fake-project"
+	if err := openInEditor(proj); err != nil {
+		t.Fatalf("openInEditor: %v", err)
+	}
+
+	got := waitForEditorCall(t, marker)
+	if strings.TrimSpace(got) != proj {
+		t.Errorf("editor args = %q, want %q", got, proj)
+	}
+}
+
+// PM_EDITOR 可覆盖默认命令，附加参数按顺序传在项目路径之前。
+func TestOpenInEditorRespectsPMEditor(t *testing.T) {
+	binDir, marker := t.TempDir(), filepath.Join(t.TempDir(), "args.txt")
+	writeFakeEditor(t, binDir, "myeditor", marker)
+
+	t.Setenv("PM_EDITOR", "myeditor --new-window")
+	t.Setenv("PATH", binDir)
+
+	proj := "/tmp/another-project"
+	if err := openInEditor(proj); err != nil {
+		t.Fatalf("openInEditor: %v", err)
+	}
+
+	got := strings.TrimSpace(waitForEditorCall(t, marker))
+	if want := "--new-window " + proj; got != want {
+		t.Errorf("editor args = %q, want %q", got, want)
+	}
+}
+
+// writeFakeEditor 在 binDir 写入一个名为 name 的可执行脚本，调用时把全部参数写到 marker。
+func writeFakeEditor(t *testing.T, binDir, name, marker string) {
+	t.Helper()
+	script := fmt.Sprintf("#!/bin/sh\necho \"$@\" > '%s'\n", marker)
+	mustWrite(t, filepath.Join(binDir, name), script)
+	if err := os.Chmod(filepath.Join(binDir, name), 0755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// waitForEditorCall 轮询等待编辑器脚本写入参数，超时则失败。
+func waitForEditorCall(t *testing.T, marker string) string {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if b, err := os.ReadFile(marker); err == nil {
+			return string(b)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("editor was not invoked (no %s written within timeout)", marker)
+	return ""
 }
 
 // 未构建时运行应给出错误提示，而不是后台起一个 goroutine 后丢失输出。

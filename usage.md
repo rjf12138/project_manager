@@ -152,9 +152,13 @@ pm remove demo        # 从列表移除（不删除任何文件）
 | `pm -r` | `pm build`（增量） |
 | `pm -c` | `pm clean` |
 | `pm -cr` | 先清理再构建 |
-| `pm -l` | 打开 TUI 项目列表 |
+| `pm -l` | 打开 TUI 项目列表；回车切换活动项目并用 VS Code 打开 |
 | `pm -cfg` | 打开 TUI 配置页 |
 | `pm tui` | 完整 TUI |
+
+`pm -l` 里回车选择项目后，pm 会把该项目设为活动项目并调用 `code <项目路径>` 打开 VS Code。
+编辑器命令默认为 `code`，可用环境变量 `PM_EDITOR` 覆盖（如 `PM_EDITOR=code-insiders`，
+也支持带参数：`PM_EDITOR="vim -p"`）。找不到编辑器命令时只打印警告，不影响活动项目的切换。
 
 ### 4.6 通用约定
 
@@ -284,7 +288,7 @@ pm pkg list                  # 确认
 
 ```bash
 pm tui        # 完整界面
-pm -l         # 直接进项目列表（q/esc 退出）
+pm -l         # 直接进项目列表，回车切换活动项目并用 VS Code 打开（q/esc 退出）
 pm -cfg       # 直接进配置页（q/esc 退出）
 ```
 
@@ -312,7 +316,7 @@ Build、Rebuild、Run、Configure、Clean、List Projects、Quit。
 | Dependencies | `↑↓` 选择，`a` 从本地仓库安装，`r` 重装选中，`u` 全部重装，`d` 卸载，`esc` 返回 |
 | Install Package | `↑↓` 选择仓库中的包，`enter` 安装到当前项目，`esc` 返回 |
 | Libraries / Lib Dirs / Include Dirs / Source Dirs | `↑↓` 选择，`a` 新增，`d` 删除，`enter` 编辑；输入时 `enter` 保存、`esc` 取消、`ctrl+u` 清空 |
-| Projects 列表 | `↑↓` 选择，`enter` 切换活动项目，`esc` 返回 |
+| Projects 列表 | `↑↓` 选择，`enter` 切换活动项目（`pm -l` 下还会用 VS Code 打开所选项目），`esc` 返回 |
 
 > 配置页里的 `Libraries` / `Lib Dirs` / `Include Dirs` 由 `pm pkg install` 自动填充，
 > 一般不需要手动维护；需要额外目录时再手工添加（相对路径按项目根解析，也可写绝对路径）。
@@ -427,3 +431,8 @@ pm tui
 **想清空所有编译产物**
 `pm clean <name>` 删除 `build/` 与 `output/` 下的产物（`output/<mode>/{bin,lib}` 空目录会重建）；
 本地仓库与项目配置都不受影响。
+
+**`pm -l` 回车后没有打开 VS Code**
+确认 `code` 命令在 `PATH` 中（终端里能直接执行 `code .`）。
+想用其它编辑器，设置环境变量 `PM_EDITOR`，例如 `PM_EDITOR=code-insiders` 或 `PM_EDITOR="/path/to/editor --flag"`。
+活动项目本身已切换成功，编辑器打不开不会影响这一点。

@@ -54,7 +54,7 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("Interactive (TUI):")
 	fmt.Println("  pm tui                                    Launch full TUI")
-	fmt.Println("  pm -l                                     Show project list (TUI)")
+	fmt.Println("  pm -l                                     Select a project and open it in VS Code (TUI)")
 	fmt.Println("  pm -cfg                                   Configure active project (TUI)")
 	fmt.Println()
 	fmt.Println("Shortcuts (active project):")
