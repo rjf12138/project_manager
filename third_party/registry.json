@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "description": "内置第三方依赖源码清单。build.sh 的 thirdparty 步骤据此编译并打包成 .pm，随 pm 二进制一起分发。仓库里只保存源码，不保存任何二进制。",
+  "packages": ["gtest"]
+}

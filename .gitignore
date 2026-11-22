@@ -1,0 +1,10 @@
+# 构建产物
+/output/
+/build/
+
+# 内置第三方包产物：仓库里只保存源码，.pm 与源码包在构建时生成
+/go/core/builtin/*
+!/go/core/builtin/PLACEHOLDER.txt
+
+# 第三方源码的 CMake 构建目录
+/third_party/*/src/build/

@@ -1,0 +1,6 @@
+占位文件：go:embed 要求目录里至少有一个非 . / _ 开头的文件，否则编译报错。
+运行 ./build.sh（或 ./build.sh thirdparty）后，这里会被填入：
+  index.json          内置包清单
+  packages/*.pm       预编译包（快路径）
+  sources/*.tar.gz    源码（兜底：环境不匹配时本机构建）
+本目录下的产物不入 git。

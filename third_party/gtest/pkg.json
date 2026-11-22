@@ -1,0 +1,35 @@
+{
+  "name": "gtest",
+  "version": "1.14.0",
+  "description": "GoogleTest (built-in)",
+  "license": "BSD-3-Clause",
+  "lib_type": "static",
+  "link_libs": ["gtest"],
+
+  "build": {
+    "system": "cmake",
+    "src": "src",
+    "args": [
+      "-DBUILD_GMOCK=OFF",
+      "-DINSTALL_GTEST=OFF",
+      "-DCMAKE_POSITION_INDEPENDENT_CODE=ON"
+    ],
+    "cxxflags": "-O2 -mtune=generic"
+  },
+
+  "stage": {
+    "include": ["src/googletest/include/gtest"],
+    "libs": [
+      "src/build/lib/libgtest.a",
+      "src/build/lib/libgtest_main.a"
+    ]
+  },
+
+  "notes": [
+    "stage.include 里目录的【内容】会被平铺到包内 include/，安装后落到 extern_inc/gtest/。",
+    "所以源码头文件目录 .../include/gtest 必须整体平铺，才能让 #include <gtest/gtest.h> 生效。",
+    "libgtest_main.a 也会装到项目 lib/ 下，但默认不写进链接库（项目通常自带 main）。",
+    "需要 gtest_main 时，在项目 .pmproject 的 targets[].link_libraries 里手动加 gtest_main。",
+    "构建旗标固定为 -O2 -mtune=generic：绝不能加 -march=native，否则产物绑死构建机 CPU。"
+  ]
+}
