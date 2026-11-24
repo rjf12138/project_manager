@@ -529,6 +529,7 @@ func TestRenderAllPages(t *testing.T) {
 		PageSrcDirsEdit,
 		PageDepsList,
 		PagePkgList,
+		PagePkgVersions,
 	}
 
 	for _, p := range pages {
@@ -669,6 +670,84 @@ func TestInstallPackageFromTUI(t *testing.T) {
 }
 
 // 在 TUI 里卸载依赖：删声明并清理文件
+// 安装页默认按包名聚合；v 进入版本页并安装选中版本
+func TestPkgVersionsPageInstallsSelectedVersion(t *testing.T) {
+	m, active := newTestModelWithPkg(t)
+
+	// 再放一个 mylib@1.1.0
+	pm := core.NewPackageManager()
+	if err := pm.Init(); err != nil {
+		t.Fatal(err)
+	}
+	src := t.TempDir()
+	mustWrite(t, filepath.Join(src, "manifest.json"),
+		`{"name":"mylib","version":"1.1.0","description":"test lib v2","link_libs":["mylib"]}`)
+	mustWrite(t, filepath.Join(src, "include", "mylib.h"), "// mylib v2\n")
+	mustWrite(t, filepath.Join(src, "lib", "debug", "libmylib.a"), "debug-v2")
+	mustWrite(t, filepath.Join(src, "lib", "release", "libmylib.a"), "release-v2")
+	if _, err := pm.CreatePackage(src, ""); err != nil {
+		t.Fatalf("CreatePackage: %v", err)
+	}
+
+	model, _ := m.enterPkgList()
+	got := model.(MainModel)
+	if len(got.repoSummaries) != 1 {
+		t.Fatalf("repoSummaries = %d, want 1", len(got.repoSummaries))
+	}
+	if latest := got.repoSummaries[0].Latest.Manifest.Version; latest != "1.1.0" {
+		t.Fatalf("latest = %s, want 1.1.0", latest)
+	}
+
+	got.ready = true
+	out := got.View()
+	for _, want := range []string{"mylib", "1.1.0", "2 versions"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("collapsed package list missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "1.0.0") {
+		t.Errorf("collapsed package list should not show the old version:\n%s", out)
+	}
+
+	// v → 版本页，两个版本都可见
+	model, _ = got.Update(runeMsg("v"))
+	got = model.(MainModel)
+	if got.page != PagePkgVersions {
+		t.Fatalf("page = %v, want PagePkgVersions", got.page)
+	}
+	if len(got.repoPkgs) != 2 {
+		t.Fatalf("repoPkgs = %d, want 2", len(got.repoPkgs))
+	}
+	out = got.View()
+	for _, want := range []string{"1.1.0", "1.0.0"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("version page missing %q:\n%s", want, out)
+		}
+	}
+
+	// 选中第二个版本 1.0.0 并安装
+	model, _ = got.Update(keyMsg(tea.KeyDown))
+	got = model.(MainModel)
+	model, _ = got.Update(keyMsg(tea.KeyEnter))
+	got = model.(MainModel)
+
+	if got.page != PageDepsList {
+		t.Fatalf("page = %v, want PageDepsList after install", got.page)
+	}
+	if got.statusType != "success" {
+		t.Fatalf("status = %q/%q, want success", got.statusType, got.statusMsg)
+	}
+	var installed string
+	for _, d := range active.Config().Dependencies {
+		if d.Name == "mylib" {
+			installed = d.Version
+		}
+	}
+	if installed != "1.0.0" {
+		t.Errorf("installed mylib version = %q, want 1.0.0", installed)
+	}
+}
+
 func TestUninstallFromTUI(t *testing.T) {
 	m, active := newTestModelWithPkg(t)
 	if _, err := m.pm.InstallToProject(active, core.Dependency{Name: "mylib", Version: "1.0.0"}); err != nil {

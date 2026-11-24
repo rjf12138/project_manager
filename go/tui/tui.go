@@ -40,8 +40,9 @@ const (
 	PageLibDirsEdit
 	PageIncDirsEdit
 	PageSrcDirsEdit
-	PageDepsList // 已安装依赖列表
-	PagePkgList  // 本地仓库包列表（用于安装）
+	PageDepsList    // 已安装依赖列表
+	PagePkgList     // 本地仓库包列表（用于安装，默认按包名聚合）
+	PagePkgVersions // 某个包的版本列表
 )
 
 // 配置页各行下标（与 renderConfigPage 的行顺序一一对应）
@@ -96,9 +97,12 @@ type MainModel struct {
 	buildLog  []string
 	logOffset int
 
-	depsCursor int                // 依赖列表游标
-	pkgCursor  int                // 仓库包列表游标
-	repoPkgs   []core.PackageInfo // 本地仓库中的包（进入安装页时加载）
+	depsCursor      int                   // 依赖列表游标
+	pkgCursor       int                   // 仓库包列表游标（主页面为包，版本页为版本）
+	repoSummaries   []core.PackageSummary // 按包名聚合的仓库视图
+	repoPkgs        []core.PackageInfo    // 当前展开/展开过的版本清单
+	pkgVersionOwner string                // 版本页对应的包名
+	pkgParentCursor int                   // 从包列表进入版本页前的游标
 
 	// openInEditorPath 记录退出 TUI 后要用编辑器打开的项目路径（pm -l 回车选择时设置）
 	openInEditorPath string
@@ -238,6 +242,8 @@ func (m MainModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleDepsListKey(key)
 	case PagePkgList:
 		return m.handlePkgListKey(key)
+	case PagePkgVersions:
+		return m.handlePkgVersionsKey(key)
 	case PageBuildLog:
 		return m.handleBuildLogKey(key)
 	}
@@ -383,6 +389,23 @@ func (m MainModel) submitCreate() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// isPMProjectDir 判断目录是否为 pm 项目：
+// 当前格式为 <dir>/.pmconfig/config.json；同时兼容早期单文件 .pmconfig
+// 与旧版 <dir>/config/.pmproject。
+func isPMProjectDir(dir string) bool {
+	candidates := []string{
+		filepath.Join(dir, core.ConfigDirName, core.ConfigFileName),
+		filepath.Join(dir, core.ConfigDirName), // 早期单文件格式
+		filepath.Join(dir, "config", core.LegacyConfigFileName),
+	}
+	for _, p := range candidates {
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
 func (m MainModel) submitLoad() (tea.Model, tea.Cmd) {
 	raw := strings.TrimSpace(m.loadInput.Value())
 	if raw == "" {
@@ -412,8 +435,8 @@ func (m MainModel) submitLoad() (tea.Model, tea.Cmd) {
 		m.statusType = "error"
 		return m, nil
 	}
-	if _, err := os.Stat(filepath.Join(abs, "config", ".pmproject")); err != nil {
-		m.statusMsg = "Not a pm project (config/.pmproject missing): " + abs
+	if !isPMProjectDir(abs) {
+		m.statusMsg = "Not a pm project (.pmconfig/config.json missing): " + abs
 		m.statusType = "error"
 		return m, nil
 	}
@@ -812,16 +835,22 @@ func (m MainModel) enterDepsList() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// enterPkgList 加载本地仓库的包并进入安装页
+// enterPkgList 加载本地仓库的包并进入安装页（默认按包名聚合）
 func (m MainModel) enterPkgList() (tea.Model, tea.Cmd) {
-	pkgs, err := m.pm.ListPackages()
+	summaries, err := m.pm.ListPackageSummaries()
 	if err != nil {
 		m.statusMsg = "Read repository failed: " + err.Error()
 		m.statusType = "error"
 		return m, nil
 	}
-	m.repoPkgs = pkgs
+
+	m.repoSummaries = summaries
+	m.repoPkgs = m.repoPkgs[:0]
+	for _, s := range summaries {
+		m.repoPkgs = append(m.repoPkgs, s.Versions...)
+	}
 	m.pkgCursor = 0
+	m.pkgVersionOwner = ""
 	m.statusMsg = ""
 	m.statusType = ""
 	m.page = PagePkgList
@@ -892,6 +921,45 @@ func (m MainModel) handlePkgListKey(key string) (tea.Model, tea.Cmd) {
 			m.pkgCursor--
 		}
 	case "down":
+		if m.pkgCursor < len(m.repoSummaries)-1 {
+			m.pkgCursor++
+		}
+	case "enter":
+		if m.pkgCursor < len(m.repoSummaries) {
+			return m.installPackage(m.repoSummaries[m.pkgCursor].Latest)
+		}
+	case "v", "right", "l":
+		return m.openPkgVersions()
+	case "esc", "q":
+		if m.directMode && key == "q" {
+			return m, tea.Quit
+		}
+		m.page = PageDepsList
+	}
+	return m, nil
+}
+
+// openPkgVersions 进入选中包的版本列表页
+func (m MainModel) openPkgVersions() (tea.Model, tea.Cmd) {
+	if m.pkgCursor >= len(m.repoSummaries) {
+		return m, nil
+	}
+	summary := m.repoSummaries[m.pkgCursor]
+	m.repoPkgs = append(m.repoPkgs[:0], summary.Versions...)
+	m.pkgVersionOwner = summary.Name
+	m.pkgParentCursor = m.pkgCursor
+	m.pkgCursor = 0
+	m.page = PagePkgVersions
+	return m, nil
+}
+
+func (m MainModel) handlePkgVersionsKey(key string) (tea.Model, tea.Cmd) {
+	switch key {
+	case "up":
+		if m.pkgCursor > 0 {
+			m.pkgCursor--
+		}
+	case "down":
 		if m.pkgCursor < len(m.repoPkgs)-1 {
 			m.pkgCursor++
 		}
@@ -903,7 +971,8 @@ func (m MainModel) handlePkgListKey(key string) (tea.Model, tea.Cmd) {
 		if m.directMode && key == "q" {
 			return m, tea.Quit
 		}
-		m.page = PageDepsList
+		m.page = PagePkgList
+		m.pkgCursor = m.pkgParentCursor
 	}
 	return m, nil
 }
@@ -1211,6 +1280,8 @@ func (m MainModel) View() string {
 		content = m.renderDepsList()
 	case PagePkgList:
 		content = m.renderPkgList()
+	case PagePkgVersions:
+		content = m.renderPkgVersions()
 	case PageList:
 		content = m.renderListPage()
 	default:
@@ -1307,7 +1378,7 @@ func (m MainModel) renderLoadProject() string {
 	var sb strings.Builder
 	sb.WriteString(titleStyle.Render("Load Project") + "\n\n")
 	sb.WriteString("  Path:  " + m.loadInput.View() + "\n")
-	sb.WriteString("\n" + helpStyle.Render("enter load • esc back  (directory containing config/.pmproject)"))
+	sb.WriteString("\n" + helpStyle.Render("enter load • esc back  (directory containing .pmconfig/config.json)"))
 	sb.WriteString(m.renderStatus())
 	return sb.String()
 }
@@ -1511,15 +1582,77 @@ func (m MainModel) renderDepsList() string {
 	return sb.String()
 }
 
-// renderPkgList 安装页：列出本地仓库中的包，回车装进当前项目
+// renderPkgList 安装页：每个包一行（默认显示最新版本），回车装进当前项目。
 func (m MainModel) renderPkgList() string {
 	var sb strings.Builder
 	sb.WriteString(titleStyle.Render("Install Package") + "\n\n")
 	sb.WriteString(dimStyle.Render("Repository: "+m.pm.RepoDir()) + "\n\n")
 
-	if len(m.repoPkgs) == 0 {
+	if len(m.repoSummaries) == 0 {
 		sb.WriteString("No packages in repository.\n")
 		sb.WriteString(dimStyle.Render("\nCreate one with: pm pkg create <dir>"))
+		sb.WriteString(m.renderStatus())
+		return sb.String()
+	}
+
+	installed := map[string]string{}
+	if active := m.solution.ActiveProject(); active != nil {
+		for _, d := range active.Config().Dependencies {
+			installed[d.Name] = d.Version
+		}
+	}
+
+	for i, s := range m.repoSummaries {
+		desc := s.Latest.Manifest.Description
+		if desc == "" {
+			desc = "-"
+		}
+
+		tags := make([]string, 0, 3)
+		if len(s.Versions) > 1 {
+			tags = append(tags, fmt.Sprintf("%d versions", len(s.Versions)))
+		}
+		if m.pm.IsBuiltin(s.Latest.File) {
+			tags = append(tags, "builtin")
+		}
+		if cur, ok := installed[s.Name]; ok {
+			if cur == s.Latest.Manifest.Version {
+				tags = append(tags, "installed")
+			} else {
+				tags = append(tags, fmt.Sprintf("upgrade %s -> %s", cur, s.Latest.Manifest.Version))
+			}
+		}
+		tag := ""
+		if len(tags) > 0 {
+			tag = "  [" + strings.Join(tags, ", ") + "]"
+		}
+
+		line := fmt.Sprintf("%-18s %-10s %s%s", s.Name, s.Latest.Manifest.Version, desc, tag)
+		if i == m.pkgCursor {
+			sb.WriteString(cursorStyle.Render(" ▶ "+line) + "\n")
+		} else {
+			sb.WriteString(normalStyle.Render("   "+line) + "\n")
+		}
+	}
+
+	sb.WriteString(helpStyle.Render("\n↑↓ select • enter install latest • v versions • esc back"))
+	sb.WriteString(m.renderStatus())
+	return sb.String()
+}
+
+// renderPkgVersions 版本页：列出选中包的所有版本，回车安装指定版本。
+func (m MainModel) renderPkgVersions() string {
+	var sb strings.Builder
+	title := "Package Versions"
+	if m.pkgVersionOwner != "" {
+		title += ": " + m.pkgVersionOwner
+	}
+	sb.WriteString(titleStyle.Render(title) + "\n\n")
+	sb.WriteString(dimStyle.Render("Repository: "+m.pm.RepoDir()) + "\n\n")
+
+	if len(m.repoPkgs) == 0 {
+		sb.WriteString("No versions available.\n")
+		sb.WriteString(helpStyle.Render("\nesc back"))
 		sb.WriteString(m.renderStatus())
 		return sb.String()
 	}
@@ -1536,18 +1669,23 @@ func (m MainModel) renderPkgList() string {
 		if desc == "" {
 			desc = "-"
 		}
-		tag := ""
+
+		tags := make([]string, 0, 3)
+		if i == 0 {
+			tags = append(tags, "latest")
+		}
 		if m.pm.IsBuiltin(p.File) {
-			tag = "  [builtin]"
+			tags = append(tags, "builtin")
 		}
-		if cur, ok := installed[p.Manifest.Name]; ok {
-			if cur == p.Manifest.Version {
-				tag = "  [installed]"
-			} else {
-				tag = "  [upgrade from " + cur + "]"
-			}
+		if cur, ok := installed[p.Manifest.Name]; ok && cur == p.Manifest.Version {
+			tags = append(tags, "installed")
 		}
-		line := fmt.Sprintf("%-18s %-10s %s%s", p.Manifest.Name, p.Manifest.Version, desc, tag)
+		tag := ""
+		if len(tags) > 0 {
+			tag = "  [" + strings.Join(tags, ", ") + "]"
+		}
+
+		line := fmt.Sprintf("%-10s %-10s %s%s", p.Manifest.Version, core.FormatSize(p.Size), desc, tag)
 		if i == m.pkgCursor {
 			sb.WriteString(cursorStyle.Render(" ▶ "+line) + "\n")
 		} else {
@@ -1555,7 +1693,7 @@ func (m MainModel) renderPkgList() string {
 		}
 	}
 
-	sb.WriteString(helpStyle.Render("\n↑↓ select • enter install into current project • esc back"))
+	sb.WriteString(helpStyle.Render("\n↑↓ select • enter install • esc back"))
 	sb.WriteString(m.renderStatus())
 	return sb.String()
 }

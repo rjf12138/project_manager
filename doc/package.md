@@ -65,6 +65,20 @@
 包文件按 `<name>-<version>.pm` 命名，例如 `greeter-1.0.0.pm`，并附带摘要边车
 `greeter-1.0.0.pm.sha256`（sha256sum 兼容格式）。
 
+### 2.1 版本视图与清理
+
+`PackageManager.ListPackages()` 返回的是全量 `name@version` 清单（安装解析、内置层覆盖都依赖它）；
+面向用户的展示在它之上做聚合：
+
+- `ListPackageSummaries()`：按包名分组，每组一个 `Latest`、按版本降序的 `Versions`、总大小；
+- `PackageVersions(name)` / `LatestPackage(name)`：查单个包的版本历史/最新版；
+- `pm pkg list` 默认每个包一行，`-a` 输出全量旧格式，`pm pkg list <name>` 查看版本历史；
+- `pm pkg prune` 按 `--keep` / `--keep-major` / `--older-than` 策略清理用户仓库旧版本。
+
+`prune` 的安全约定：内置层只读不删；每个包的最新版永远保留；最新版是预发布版时保留最高正式版；
+被已注册项目 `dependencies` 引用的版本默认保留（`--force` 忽略）；默认 dry-run，`--yes` 才真正删除。
+删除归档时一并删除同名 `.sha256` 边车，并清理没有对应 `.pm` 的孤立边车。
+
 > **版本不可变**：同一个 `name@version` 只允许存在一份内容。重复 `pm pkg create` 会报错，
 > 需要显式加 `-f/--force` 才会覆盖。这样依赖才能复现。
 >
@@ -118,6 +132,27 @@
 pm pkg install mylib@2.0.0 -p App
 ```
 
+批量更新项目全部依赖：
+
+```bash
+pm deps update -p App          # 打印计划（dry-run）
+pm deps update -p App --yes    # 执行更新
+```
+
+默认选择最高正式版，`--pre` 允许预发布版；配置里的版本比仓库最新版新时会跳过，不会降级。
+
+`pm deps update --yes` 会在执行前把当前依赖写入 `<project>/.pmconfig/deps_backup.json`，
+可以用下面的命令回退：
+
+```bash
+pm deps rollback            # 查看回退计划（dry-run）
+pm deps rollback --yes      # 恢复到上一次 update 前
+pm deps rollback --yes --clean  # 同时移除快照中没有的依赖
+```
+
+旧版本归档必须仍在仓库中；已被 `pm pkg prune` 删除的版本无法回退，需要重新打包。
+单个包回退可以直接 `pm pkg install <pkg>@<old-version> -p <project>`。
+
 ### 卸载
 
 `pm deps remove <pkg> [-p project]` 会同时移除依赖声明**和**安装时复制进项目的文件：
@@ -143,8 +178,9 @@ pm deps remove greeter -p Demo --keep-files # 只删声明
 | `pm pkg create <dir> [-o out.pm] [-f]` | 将目录打包为 `.pm`，默认输出到仓库；同 `name@version` 已存在时报错，`-f` 才覆盖 |
 | `pm pkg install <pkg>[@ver] [-p project]` | 安装包到项目（含递归依赖） |
 | `pm pkg remove <pkg>[@ver]` | 从仓库删除包 |
-| `pm pkg list` | 列出仓库中的包 |
-| `pm pkg search [keyword]` | 按名称/描述搜索 |
+| `pm pkg list [-a] [name...]` | 默认每个包一行（最新版本 + 版本数 + 总大小）；`-a` 全量版本；带包名时显示版本历史 |
+| `pm pkg search [-a] [keyword]` | 按名称/描述搜索；默认按包名折叠，`-a` 展开 |
+| `pm pkg prune [name...]` | 清理旧版本；默认 dry-run，支持 `--keep N`、`--keep-major N`、`--older-than DUR`、`--force`、`--yes` |
 | `pm pkg dir` | 打印仓库目录 |
 
 ### 项目依赖
@@ -155,6 +191,8 @@ pm deps remove greeter -p Demo --keep-files # 只删声明
 | `pm deps add <pkg>[@ver] [-p project]` | 添加并安装依赖 |
 | `pm deps remove <pkg> [-p project] [--keep-files]` | 移除依赖声明并清理已安装文件 |
 | `pm deps list [project]` | 查看依赖及安装状态 |
+| `pm deps update [project] [--dry-run] [--yes] [--pre]` | 把所有依赖更新到仓库最新版；默认 dry-run，`--yes` 执行 |
+| `pm deps rollback [project] [--dry-run] [--yes] [--clean]` | 恢复到上一次 update 前的版本；`--clean` 移除快照中没有的依赖 |
 
 `pm deps list` 的状态按**该依赖自己的文件**判断，而不是只看目录是否非空：
 

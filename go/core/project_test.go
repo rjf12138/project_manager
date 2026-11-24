@@ -1,7 +1,9 @@
 package core
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,8 +17,8 @@ func TestCreateProjectSkeleton(t *testing.T) {
 		t.Fatalf("CreateProject: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(full, "config", ".pmproject")); err != nil {
-		t.Fatalf("config/.pmproject missing: %v", err)
+	if _, err := os.Stat(filepath.Join(full, ConfigDirName, ConfigFileName)); err != nil {
+		t.Fatalf(".pmconfig/config.json missing: %v", err)
 	}
 
 	dirs := []string{
@@ -279,6 +281,261 @@ func TestSaveConfigSyncsSingleTargetType(t *testing.T) {
 	out := GenerateCMakeLists(got, reloaded.DirInfo())
 	if !strings.Contains(out, "add_executable(Sync") {
 		t.Errorf("expected executable after save:\n%s", out)
+	}
+}
+
+// 新项目配置放在根目录 .pmconfig/ 目录下（config.json），且不创建 config/ 目录。
+func TestCreateProjectUsesRootConfigWithoutConfigDir(t *testing.T) {
+	tmp := t.TempDir()
+	full, err := CreateProject("DotConfig", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfgPath := filepath.Join(full, ConfigDirName, ConfigFileName)
+	if _, err := os.Stat(cfgPath); err != nil {
+		t.Errorf("%s/%s missing: %v", ConfigDirName, ConfigFileName, err)
+	}
+	if fi, err := os.Stat(filepath.Join(full, ConfigDirName)); err != nil || !fi.IsDir() {
+		t.Errorf("%s should be a directory", ConfigDirName)
+	}
+	if _, err := os.Stat(filepath.Join(full, "config")); !os.IsNotExist(err) {
+		t.Errorf("config/ directory should not be created by pm, stat err = %v", err)
+	}
+}
+
+// 旧项目（config/.pmproject）仍可加载；保存后迁移到 .pmconfig/config.json。
+func TestLoadLegacyConfigAndMigrateOnSave(t *testing.T) {
+	tmp := t.TempDir()
+	full, err := CreateProject("Legacy", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newCfg := filepath.Join(full, ConfigDirName, ConfigFileName)
+	data, err := os.ReadFile(newCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 模拟旧版项目：配置放到 config/.pmproject，移除 .pmconfig 目录
+	if err := os.RemoveAll(filepath.Join(full, ConfigDirName)); err != nil {
+		t.Fatal(err)
+	}
+	legacyDir := filepath.Join(full, "config")
+	if err := os.MkdirAll(legacyDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	legacyCfg := filepath.Join(legacyDir, LegacyConfigFileName)
+	if err := os.WriteFile(legacyCfg, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	proj, err := LoadProject(full)
+	if err != nil {
+		t.Fatalf("legacy config should still load: %v", err)
+	}
+	if proj.Config().Name != "Legacy" {
+		t.Errorf("name = %q, want Legacy", proj.Config().Name)
+	}
+
+	// 保存配置后应写到新位置，旧文件保留
+	if err := proj.SaveConfig(proj.Config()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(newCfg); err != nil {
+		t.Errorf("config was not migrated to %s: %v", newCfg, err)
+	}
+	if _, err := os.Stat(legacyCfg); err != nil {
+		t.Errorf("legacy config should be kept for safety: %v", err)
+	}
+}
+
+// 早期单文件 .pmconfig 格式仍可加载；保存后自动迁移为 .pmconfig/ 目录。
+func TestLoadSingleFileConfigAndMigrateOnSave(t *testing.T) {
+	tmp := t.TempDir()
+	full, err := CreateProject("SingleFile", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfgDir := filepath.Join(full, ConfigDirName)
+	cfgPath := filepath.Join(cfgDir, ConfigFileName)
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 模拟早期单文件格式：删除目录，把内容写成同名文件
+	if err := os.RemoveAll(cfgDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfgDir, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	proj, err := LoadProject(full)
+	if err != nil {
+		t.Fatalf("single-file config should still load: %v", err)
+	}
+
+	if err := proj.SaveConfig(proj.Config()); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(cfgDir); err != nil || !fi.IsDir() {
+		t.Errorf("%s should be migrated to a directory", ConfigDirName)
+	}
+	if _, err := os.Stat(cfgPath); err != nil {
+		t.Errorf("%s/%s missing after migration: %v", ConfigDirName, ConfigFileName, err)
+	}
+}
+
+// ===================== 构建前后脚本（.pmconfig/*.sh） =====================
+
+// 构建脚本按文件内容执行，输出带阶段前缀。
+func TestRunBuildScript(t *testing.T) {
+	root := t.TempDir()
+	proj := NewProject()
+	proj.fillDirInfo(root)
+
+	cfgDir := projectConfigDir(root)
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(cfgDir, PreBuildScriptName)
+	script := "#!/bin/sh\necho a >> order.txt\necho b >> order.txt\n"
+	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := proj.runBuildScript("pre-build", PreBuildScriptName, &out, &out); err != nil {
+		t.Fatalf("runBuildScript: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(root, "order.txt"))
+	if err != nil {
+		t.Fatalf("order.txt missing: %v", err)
+	}
+	if got := string(data); got != "a\nb\n" {
+		t.Errorf("script did not run as expected: %q", got)
+	}
+	if !strings.Contains(out.String(), "[pre-build] "+scriptPath) {
+		t.Errorf("missing stage prefix in output:\n%s", out.String())
+	}
+}
+
+// 脚本文件不存在时静默跳过。
+func TestRunBuildScriptMissingIsSkipped(t *testing.T) {
+	root := t.TempDir()
+	proj := NewProject()
+	proj.fillDirInfo(root)
+
+	var out bytes.Buffer
+	if err := proj.runBuildScript("pre-build", PreBuildScriptName, &out, &out); err != nil {
+		t.Fatalf("missing script should be skipped: %v", err)
+	}
+	if out.Len() != 0 {
+		t.Errorf("unexpected output for missing script: %q", out.String())
+	}
+}
+
+// 构建脚本失败时返回错误并带上脚本路径。
+func TestRunBuildScriptFailure(t *testing.T) {
+	root := t.TempDir()
+	proj := NewProject()
+	proj.fillDirInfo(root)
+
+	cfgDir := projectConfigDir(root)
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(cfgDir, PostBuildScriptName)
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\nexit 5\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	err := proj.runBuildScript("post-build", PostBuildScriptName, &out, &out)
+	if err == nil {
+		t.Fatal("expected error for failing script")
+	}
+	if !strings.Contains(err.Error(), "post-build script failed") {
+		t.Errorf("error = %q, want post-build failure", err)
+	}
+}
+
+// pre_build.sh 失败必须中止构建（不会走到 cmake）。
+func TestPreBuildFailureStopsBuild(t *testing.T) {
+	tmp := t.TempDir()
+	full, err := CreateProject("PreFail", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, err := LoadProject(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scriptPath := filepath.Join(full, ConfigDirName, PreBuildScriptName)
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\nexit 7\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	log, err := proj.BuildCapture(false)
+	if err == nil {
+		t.Fatalf("build should fail when pre_build.sh fails\n%s", log)
+	}
+	if !strings.Contains(err.Error(), "pre-build script failed") {
+		t.Errorf("error = %q, want pre-build failure", err)
+	}
+	if !strings.Contains(log, "[pre-build] "+scriptPath) {
+		t.Errorf("pre-build output missing from log:\n%s", log)
+	}
+}
+
+// 端到端：pre_build.sh / post_build.sh 都在编译流程中执行，且顺序正确。
+func TestBuildHooksRunInOrder(t *testing.T) {
+	if _, err := exec.LookPath("cmake"); err != nil {
+		t.Skip("cmake not installed")
+	}
+
+	tmp := t.TempDir()
+	full, err := CreateProject("Hooked", tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, err := LoadProject(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfgDir := filepath.Join(full, ConfigDirName)
+	preScript := filepath.Join(cfgDir, PreBuildScriptName)
+	postScript := filepath.Join(cfgDir, PostBuildScriptName)
+	if err := os.WriteFile(preScript, []byte("#!/bin/sh\necho pre >> hook_order.txt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(postScript, []byte("#!/bin/sh\necho post >> hook_order.txt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	log, err := proj.BuildCapture(false)
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, log)
+	}
+	for _, want := range []string{"[pre-build] " + preScript, "[post-build] " + postScript} {
+		if !strings.Contains(log, want) {
+			t.Errorf("build log missing %q:\n%s", want, log)
+		}
+	}
+
+	data, err := os.ReadFile(filepath.Join(full, "hook_order.txt"))
+	if err != nil {
+		t.Fatalf("hook_order.txt missing: %v", err)
+	}
+	if got := string(data); got != "pre\npost\n" {
+		t.Errorf("hooks ran out of order: %q", got)
 	}
 }
 

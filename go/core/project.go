@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // BuildMode 编译模式
@@ -46,6 +47,15 @@ type Dependency struct {
 	LibType LibType `json:"lib_type,omitempty"`
 }
 
+// DependencyBackup 依赖版本快照，由 pm deps update 在修改项目前写入，
+// 供 pm deps rollback 恢复到更新前的版本。
+type DependencyBackup struct {
+	Version      int          `json:"version"`
+	CreatedAt    time.Time    `json:"created_at"`
+	Reason       string       `json:"reason,omitempty"`
+	Dependencies []Dependency `json:"dependencies"`
+}
+
 // ProjectDependencies 项目依赖集合
 type ProjectDependencies struct {
 	Libs    []string `json:"libs"`
@@ -80,7 +90,7 @@ type Target struct {
 
 // ===================== 项目配置 =====================
 
-// ProjectConfig 项目核心配置（对应 config/.pmproject）
+// ProjectConfig 项目核心配置（对应 .pmconfig/config.json）
 type ProjectConfig struct {
 	Name             string              `json:"name"`
 	Version          string              `json:"version"`
@@ -112,7 +122,7 @@ type ProjectConfig struct {
 // ProjectDirInfo 标准项目目录布局
 type ProjectDirInfo struct {
 	Root             string
-	Config           string
+	Config           string // legacy 配置目录（旧版 .pmproject 位置，仅用于兼容读取）
 	Doc              string
 	ExternInc        string
 	Inc              string
@@ -449,9 +459,64 @@ func (p *Project) fillDirInfo(projPath string) {
 	}
 }
 
-// configFilePath 返回配置文件路径 config/.pmproject
+// ConfigDirName 项目配置目录名（位于项目根目录）
+const ConfigDirName = ".pmconfig"
+
+// ConfigFileName 主配置文件名（位于 .pmconfig/ 目录）
+const ConfigFileName = "config.json"
+
+// 构建前后脚本文件名（位于 .pmconfig/ 目录，存在即执行）
+const (
+	PreBuildScriptName  = "pre_build.sh"
+	PostBuildScriptName = "post_build.sh"
+)
+
+// LegacyConfigFileName 旧版项目配置文件名（位于 config/ 目录）
+const LegacyConfigFileName = ".pmproject"
+
+// projectConfigDir 返回项目的配置目录：<root>/.pmconfig
+func projectConfigDir(projPath string) string {
+	return filepath.Join(projPath, ConfigDirName)
+}
+
+// projectConfigPath 返回主配置文件路径：<root>/.pmconfig/config.json
+func projectConfigPath(projPath string) string {
+	return filepath.Join(projectConfigDir(projPath), ConfigFileName)
+}
+
+// legacyProjectConfigPath 返回旧版配置文件路径：<root>/config/.pmproject
+func legacyProjectConfigPath(projPath string) string {
+	return filepath.Join(projPath, "config", LegacyConfigFileName)
+}
+
+// configDir 返回当前项目的配置目录
+func (p *Project) configDir() string {
+	return projectConfigDir(p.dirInfo.Root)
+}
+
+// configFilePath 返回当前项目主配置文件路径
 func (p *Project) configFilePath() string {
-	return filepath.Join(p.dirInfo.Config, ".pmproject")
+	return projectConfigPath(p.dirInfo.Root)
+}
+
+// readConfigData 按优先级读取项目配置内容：
+//  1. <root>/.pmconfig/config.json（当前格式）
+//  2. <root>/.pmconfig（早期单文件格式，兼容）
+//  3. <root>/config/.pmproject（旧版位置，兼容）
+func readConfigData(projPath string) ([]byte, string, error) {
+	cfgPath := projectConfigPath(projPath)
+	if data, err := os.ReadFile(cfgPath); err == nil {
+		return data, cfgPath, nil
+	}
+	singleFile := projectConfigDir(projPath)
+	if data, err := os.ReadFile(singleFile); err == nil {
+		return data, singleFile, nil
+	}
+	legacyPath := legacyProjectConfigPath(projPath)
+	if data, err := os.ReadFile(legacyPath); err == nil {
+		return data, legacyPath, nil
+	}
+	return nil, cfgPath, fmt.Errorf("config file not found: %s", cfgPath)
 }
 
 // generateUUID 生成一个简单的 UUID v4 风格字符串
@@ -551,8 +616,9 @@ func CreateProject(projName, parentPath string) (string, error) {
 
 // createDirStructure 创建标准目录结构
 func (p *Project) createDirStructure() error {
+	// 不再创建 config/ 目录：项目配置位于根目录的 .pmconfig/ 目录，
+	// 避免占用项目自己的 config 目录。
 	dirs := []string{
-		p.dirInfo.Config,
 		p.dirInfo.Doc,
 		p.dirInfo.ExternInc,
 		p.dirInfo.Inc,
@@ -594,7 +660,13 @@ int main(int argc, char* argv[]) {
 
 // ===================== 加载项目 =====================
 
-// LoadProject 从已有项目路径加载
+// LoadProject 从已有项目路径加载。
+// 配置读取优先级：
+//  1. <root>/.pmconfig/config.json（当前格式）
+//  2. <root>/.pmconfig（早期单文件格式，兼容）
+//  3. <root>/config/.pmproject（旧版位置，兼容）
+//
+// 保存配置时统一写入 .pmconfig/config.json。
 func LoadProject(projPath string) (*Project, error) {
 	info, err := os.Stat(projPath)
 	if err != nil || !info.IsDir() {
@@ -604,10 +676,9 @@ func LoadProject(projPath string) (*Project, error) {
 	proj := NewProject()
 	proj.fillDirInfo(projPath)
 
-	cfgPath := proj.configFilePath()
-	data, err := os.ReadFile(cfgPath)
+	data, _, err := readConfigData(projPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, err
 	}
 
 	var cfg ProjectConfig
@@ -638,7 +709,16 @@ func (p *Project) SaveConfig(cfg ProjectConfig) error {
 }
 
 func (p *Project) writeConfig() error {
-	if err := os.MkdirAll(p.dirInfo.Config, 0755); err != nil {
+	cfgDir := p.configDir()
+
+	// 兼容早期单文件格式 .pmconfig：内容已加载到内存，保存时替换为目录格式
+	if fi, err := os.Stat(cfgDir); err == nil && !fi.IsDir() {
+		if err := os.Remove(cfgDir); err != nil {
+			return err
+		}
+	}
+
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
 		return err
 	}
 
@@ -648,6 +728,61 @@ func (p *Project) writeConfig() error {
 	}
 
 	return os.WriteFile(p.configFilePath(), data, 0644)
+}
+
+// ===================== 依赖快照（回退） =====================
+
+const dependencyBackupVersion = 1
+
+// DependencyBackupPath 返回依赖快照文件路径。
+// 正常项目为 <.pmconfig>/deps_backup.json；兼容旧版单文件 .pmconfig。
+func (p *Project) DependencyBackupPath() string {
+	dir := p.configDir()
+	if fi, err := os.Stat(dir); err == nil && !fi.IsDir() {
+		return filepath.Join(p.dirInfo.Root, ".deps_backup.json")
+	}
+	return filepath.Join(dir, "deps_backup.json")
+}
+
+// SaveDependencyBackup 把当前依赖列表写入快照。
+func (p *Project) SaveDependencyBackup(reason string) error {
+	if !p.loaded {
+		return fmt.Errorf("project not loaded")
+	}
+
+	backup := DependencyBackup{
+		Version:      dependencyBackupVersion,
+		CreatedAt:    time.Now(),
+		Reason:       reason,
+		Dependencies: append([]Dependency(nil), p.cfg.Dependencies...),
+	}
+	data, err := json.MarshalIndent(backup, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	path := p.DependencyBackupPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(data, '\n'), 0644)
+}
+
+// LoadDependencyBackup 读取依赖快照。
+func (p *Project) LoadDependencyBackup() (*DependencyBackup, error) {
+	data, err := os.ReadFile(p.DependencyBackupPath())
+	if err != nil {
+		return nil, err
+	}
+
+	var backup DependencyBackup
+	if err := json.Unmarshal(data, &backup); err != nil {
+		return nil, fmt.Errorf("failed to parse dependency backup: %w", err)
+	}
+	if backup.Version != dependencyBackupVersion {
+		return nil, fmt.Errorf("unsupported dependency backup version: %d", backup.Version)
+	}
+	return &backup, nil
 }
 
 // ===================== 构建 =====================
@@ -681,6 +816,11 @@ func (p *Project) BuildWithWriter(rebuild bool, out, errW io.Writer) error {
 		os.RemoveAll(buildDir)
 	}
 
+	// 编译前脚本：.pmconfig/pre_build.sh（存在则执行；失败中止构建）
+	if err := p.runBuildScript("pre-build", PreBuildScriptName, out, errW); err != nil {
+		return err
+	}
+
 	if err := os.MkdirAll(buildDir, 0755); err != nil {
 		return err
 	}
@@ -699,6 +839,37 @@ func (p *Project) BuildWithWriter(rebuild bool, out, errW io.Writer) error {
 		return fmt.Errorf("cmake build failed: %w", err)
 	}
 
+	// 编译后脚本：.pmconfig/post_build.sh（存在则执行，仅在编译成功后）
+	if err := p.runBuildScript("post-build", PostBuildScriptName, out, errW); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// runBuildScript 执行 .pmconfig/<name> 构建脚本（文件不存在则跳过）。
+// 脚本用 $SHELL 执行（默认 /bin/bash），工作目录为项目根目录，
+// 输出写入 out/errW（会出现在构建日志里）。
+func (p *Project) runBuildScript(stage, name string, out, errW io.Writer) error {
+	scriptPath := filepath.Join(p.configDir(), name)
+	info, err := os.Stat(scriptPath)
+	if err != nil || info.IsDir() {
+		return nil
+	}
+
+	fmt.Fprintf(out, "[%s] %s\n", stage, scriptPath)
+
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/bash"
+	}
+	cmd := exec.Command(shell, scriptPath)
+	cmd.Dir = p.dirInfo.Root
+	cmd.Stdout = out
+	cmd.Stderr = errW
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s script failed (%s): %w", stage, scriptPath, err)
+	}
 	return nil
 }
 

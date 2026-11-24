@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,15 @@ func TestCompareVersion(t *testing.T) {
 		{"2.0", "1.9", 1},
 		{"1.10.0", "1.9.0", 1},
 		{"0.1.0", "0.1.0", 0},
+		{"1.0", "1.0.0", 0},
+		{"1.0.0-rc1", "1.0.0", -1},
+		{"1.0.0", "1.0.0-rc1", 1},
+		{"1.0.0-rc2", "1.0.0-rc10", -1},
+		{"1.0.0-rc.1", "1.0.0-rc.2", -1},
+		{"1.0.0-alpha", "1.0.0-beta", -1},
+		{"1.0.0-alpha.1", "1.0.0-alpha", 1},
+		{"2.0.0-rc1", "1.9.0", 1},
+		{"1.0.0+build1", "1.0.0+build2", 0},
 	}
 	for _, c := range cases {
 		if got := compareVersion(c.a, c.b); got != c.want {
@@ -700,5 +710,233 @@ func TestGenerateCMakeUsesDependencyDirs(t *testing.T) {
 	// 绝对路径不能被拼成 ${CMAKE_SOURCE_DIR}/opt/...
 	if strings.Contains(out, "${CMAKE_SOURCE_DIR}/opt/sdk") {
 		t.Errorf("absolute path must not be prefixed with CMAKE_SOURCE_DIR:\n%s", out)
+	}
+}
+
+// createTestPackage 在仓库中创建一个指定名称/版本的包，返回 .pm 路径。
+func createTestPackage(t *testing.T, pm *PackageManager, name, version string) string {
+	t.Helper()
+	src := t.TempDir()
+	writeTestFile(t, filepath.Join(src, "manifest.json"),
+		fmt.Sprintf(`{"name":%q,"version":%q,"description":"%s %s","link_libs":[%q]}`,
+			name, version, name, version, name))
+	writeTestFile(t, filepath.Join(src, "include", name+".h"), "// "+name+"\n")
+	writeTestFile(t, filepath.Join(src, "lib", "debug", "lib"+name+".a"), "debug-"+version)
+
+	file, err := pm.CreatePackage(src, "")
+	if err != nil {
+		t.Fatalf("CreatePackage(%s@%s): %v", name, version, err)
+	}
+	return file
+}
+
+func decisionFor(result PruneResult, name, version string) *PruneDecision {
+	for i := range result.Decisions {
+		d := &result.Decisions[i]
+		if d.Info.Manifest.Name == name && d.Info.Manifest.Version == version {
+			return d
+		}
+	}
+	return nil
+}
+
+func TestListPackageSummaries(t *testing.T) {
+	pm := setupRepo(t)
+
+	createTestPackage(t, pm, "alpha", "1.0.0")
+	createTestPackage(t, pm, "alpha", "1.1.0")
+	createTestPackage(t, pm, "alpha", "2.0.0")
+	createTestPackage(t, pm, "beta", "1.0.0")
+
+	summaries, err := pm.ListPackageSummaries()
+	if err != nil {
+		t.Fatalf("ListPackageSummaries: %v", err)
+	}
+	if len(summaries) != 2 {
+		t.Fatalf("summaries = %d, want 2: %+v", len(summaries), summaries)
+	}
+	if summaries[0].Name != "alpha" || summaries[1].Name != "beta" {
+		t.Fatalf("summaries order = %s, %s; want alpha, beta", summaries[0].Name, summaries[1].Name)
+	}
+
+	alpha := summaries[0]
+	if alpha.Latest.Manifest.Version != "2.0.0" {
+		t.Errorf("alpha latest = %s, want 2.0.0", alpha.Latest.Manifest.Version)
+	}
+	if len(alpha.Versions) != 3 {
+		t.Fatalf("alpha versions = %d, want 3", len(alpha.Versions))
+	}
+	wantOrder := []string{"2.0.0", "1.1.0", "1.0.0"}
+	for i, want := range wantOrder {
+		if got := alpha.Versions[i].Manifest.Version; got != want {
+			t.Errorf("alpha.Versions[%d] = %s, want %s", i, got, want)
+		}
+	}
+
+	var wantSize int64
+	for _, info := range alpha.Versions {
+		wantSize += info.Size
+	}
+	if alpha.TotalSize != wantSize {
+		t.Errorf("alpha.TotalSize = %d, want %d", alpha.TotalSize, wantSize)
+	}
+
+	// 显式指定版本时也必须返回同一个最新版
+	latest, err := pm.LatestPackage("alpha")
+	if err != nil {
+		t.Fatalf("LatestPackage: %v", err)
+	}
+	if latest.Manifest.Version != "2.0.0" {
+		t.Errorf("LatestPackage(alpha) = %s, want 2.0.0", latest.Manifest.Version)
+	}
+
+	if _, err := pm.LatestPackage("missing"); err == nil {
+		t.Error("LatestPackage(missing) should fail")
+	}
+	versions, err := pm.PackageVersions("missing")
+	if err != nil {
+		t.Fatalf("PackageVersions(missing): %v", err)
+	}
+	if len(versions) != 0 {
+		t.Errorf("PackageVersions(missing) = %d, want 0", len(versions))
+	}
+}
+
+func TestPrunePackages(t *testing.T) {
+	pm := setupRepo(t)
+
+	createTestPackage(t, pm, "alpha", "1.0.0")
+	createTestPackage(t, pm, "alpha", "1.1.0")
+	createTestPackage(t, pm, "alpha", "1.2.0")
+	createTestPackage(t, pm, "beta", "1.0.0")
+	createTestPackage(t, pm, "beta", "2.0.0")
+
+	// alpha@1.0.0 被项目引用，应额外保留；其余按 keep=1 只保留最新。
+	protected := map[string]map[string]bool{"alpha": {"1.0.0": true}}
+	dry, err := pm.Prune(PruneOptions{Keep: 1, DryRun: true, Protected: protected})
+	if err != nil {
+		t.Fatalf("Prune(dry-run): %v", err)
+	}
+
+	want := map[string]string{
+		"alpha@1.2.0": "latest",
+		"alpha@1.0.0": "used-by-project",
+		"alpha@1.1.0": "remove",
+		"beta@2.0.0":  "latest",
+		"beta@1.0.0":  "remove",
+	}
+	for key, reason := range want {
+		parts := strings.SplitN(key, "@", 2)
+		if len(parts) != 2 {
+			t.Fatalf("bad test key %q", key)
+		}
+		name, version := parts[0], parts[1]
+		d := decisionFor(dry, name, version)
+		if d == nil {
+			t.Fatalf("missing decision for %s", key)
+		}
+		if reason == "remove" {
+			if d.Action != "remove" {
+				t.Errorf("%s action = %s, want remove", key, d.Action)
+			}
+		} else if d.Action != "keep" || d.Reason != reason {
+			t.Errorf("%s = %s/%s, want keep/%s", key, d.Action, d.Reason, reason)
+		}
+	}
+
+	// dry-run 不能删文件
+	if _, err := os.Stat(filepath.Join(pm.RepoDir(), "alpha-1.1.0.pm")); err != nil {
+		t.Fatalf("dry-run removed alpha-1.1.0.pm: %v", err)
+	}
+
+	result, err := pm.Prune(PruneOptions{Keep: 1, Protected: protected})
+	if err != nil {
+		t.Fatalf("Prune: %v", err)
+	}
+	if len(result.Removed) != 2 {
+		t.Fatalf("removed = %d, want 2: %+v", len(result.Removed), result.Removed)
+	}
+	for _, removed := range []string{"alpha-1.1.0.pm", "beta-1.0.0.pm"} {
+		if _, err := os.Stat(filepath.Join(pm.RepoDir(), removed)); !os.IsNotExist(err) {
+			t.Errorf("%s should be removed, stat err = %v", removed, err)
+		}
+		if _, err := os.Stat(filepath.Join(pm.RepoDir(), removed+".sha256")); !os.IsNotExist(err) {
+			t.Errorf("%s.sha256 should be removed, stat err = %v", removed, err)
+		}
+	}
+	for _, kept := range []string{"alpha-1.0.0.pm", "alpha-1.2.0.pm", "beta-2.0.0.pm"} {
+		if _, err := os.Stat(filepath.Join(pm.RepoDir(), kept)); err != nil {
+			t.Errorf("%s should be kept: %v", kept, err)
+		}
+	}
+	if result.Freed <= 0 {
+		t.Errorf("Freed = %d, want > 0", result.Freed)
+	}
+}
+
+func TestPruneKeepsBuiltinAndLatestStable(t *testing.T) {
+	pm := setupRepo(t)
+
+	// 内置层放 alpha@1.0.0，用户仓库放 alpha@2.0.0
+	builtinDir := t.TempDir()
+	pm.SetBuiltinDir(builtinDir)
+	src := t.TempDir()
+	writeTestFile(t, filepath.Join(src, "manifest.json"),
+		`{"name":"alpha","version":"1.0.0","description":"builtin alpha"}`)
+	writeTestFile(t, filepath.Join(src, "include", "alpha.h"), "// alpha\n")
+	if _, err := pm.CreatePackageWithOptions(src, CreateOptions{
+		OutFile: filepath.Join(builtinDir, "alpha-1.0.0.pm"),
+	}); err != nil {
+		t.Fatalf("create builtin package: %v", err)
+	}
+
+	createTestPackage(t, pm, "alpha", "2.0.0")
+
+	result, err := pm.Prune(PruneOptions{Keep: 1, Force: true})
+	if err != nil {
+		t.Fatalf("Prune: %v", err)
+	}
+	if len(result.Removed) != 0 {
+		t.Fatalf("removed = %+v, want none (builtin must never be deleted)", result.Removed)
+	}
+	if _, err := os.Stat(filepath.Join(builtinDir, "alpha-1.0.0.pm")); err != nil {
+		t.Errorf("builtin package removed: %v", err)
+	}
+	d := decisionFor(result, "alpha", "1.0.0")
+	if d == nil || d.Action != "keep" || d.Reason != "builtin" {
+		t.Errorf("builtin decision = %+v, want keep/builtin", d)
+	}
+
+	// 预发布版成为最新时，最高的正式版也要保留
+	createTestPackage(t, pm, "gamma", "1.0.0")
+	createTestPackage(t, pm, "gamma", "2.0.0-rc1")
+	result, err = pm.Prune(PruneOptions{Keep: 1, Names: []string{"gamma"}})
+	if err != nil {
+		t.Fatalf("Prune(gamma): %v", err)
+	}
+	if len(result.Removed) != 0 {
+		t.Fatalf("gamma removed = %+v, want none", result.Removed)
+	}
+	stable := decisionFor(result, "gamma", "1.0.0")
+	if stable == nil || stable.Reason != "latest-stable" {
+		t.Errorf("stable decision = %+v, want keep/latest-stable", stable)
+	}
+}
+
+func TestPruneOrphanSidecar(t *testing.T) {
+	pm := setupRepo(t)
+	createTestPackage(t, pm, "alpha", "1.0.0")
+	orphan := filepath.Join(pm.RepoDir(), "ghost.pm.sha256")
+	writeTestFile(t, orphan, "deadbeef  ghost.pm\n")
+
+	result, err := pm.Prune(PruneOptions{Keep: 1})
+	if err != nil {
+		t.Fatalf("Prune: %v", err)
+	}
+	if len(result.OrphanSidecars) != 1 || result.OrphanSidecars[0] != orphan {
+		t.Fatalf("OrphanSidecars = %+v, want [%s]", result.OrphanSidecars, orphan)
+	}
+	if _, err := os.Stat(orphan); !os.IsNotExist(err) {
+		t.Errorf("orphan sidecar should be removed, stat err = %v", err)
 	}
 }

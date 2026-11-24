@@ -61,8 +61,10 @@ pm remove demo        # 从列表移除（不删除任何文件）
 
 ```
 <project>/
-├── config/                 # 配置文件
-│   └── .pmproject          # 项目元数据（JSON）
+├── .pmconfig/              # pm 配置目录
+│   ├── config.json         # 项目元数据（JSON）
+│   ├── pre_build.sh        # 可选：构建前脚本
+│   └── post_build.sh       # 可选：构建后脚本
 ├── doc/                    # 文档
 ├── extern_inc/             # 外部依赖头文件（包管理器写入）
 ├── inc/                    # 本项目对外提供的头文件
@@ -75,6 +77,10 @@ pm remove demo        # 从列表移除（不删除任何文件）
 │   └── release/{bin,lib}/
 └── src/                    # 项目内部实现
 ```
+
+> pm 的所有配置都集中在项目根目录的 `.pmconfig/` 目录中，不会占用或创建 `config/`
+> 目录，避免与项目自己的配置目录冲突。旧项目仍可读取 `config/.pmproject`，保存配置时
+> 会自动写到 `.pmconfig/config.json`（旧文件保留，确认无误后可手动删除）。
 
 约定：
 
@@ -112,6 +118,9 @@ pm remove demo        # 从列表移除（不删除任何文件）
 
 `[name]` 省略时使用活动项目；也可以直接传项目路径（会自动注册）。
 
+如果 `.pmconfig/` 下存在 `pre_build.sh` / `post_build.sh`，构建时会自动执行它们
+（工作目录为项目根目录，输出进入构建日志）。详见 [doc/config.md](doc/config.md#4-构建前后脚本)。
+
 ### 4.3 项目依赖
 
 | 命令 | 说明 |
@@ -120,6 +129,8 @@ pm remove demo        # 从列表移除（不删除任何文件）
 | `pm deps add <pkg>[@ver] [-p project]` | 添加并安装依赖，自动写入配置 |
 | `pm deps remove <pkg> [-p project] [--keep-files]` | 移除依赖声明**并清理已安装的文件**；`--keep-files` 只删声明 |
 | `pm deps list [name]` | 查看依赖及安装状态 |
+| `pm deps update [name] [--dry-run] [--yes] [--pre]` | 把所有依赖更新到仓库最新版；默认 dry-run，`--yes` 执行，`--pre` 允许预发布版 |
+| `pm deps rollback [name] [--dry-run] [--yes] [--clean]` | 恢复到上一次 `deps update` 前的依赖版本；`--clean` 同时移除快照中没有的依赖 |
 
 `pm deps list` 的状态含义：
 
@@ -137,8 +148,9 @@ pm remove demo        # 从列表移除（不删除任何文件）
 | `pm pkg create <dir> [-o out.pm] [-f]` | 把目录打包成 `.pm`；同名同版本已存在时报错，`-f/--force` 才覆盖 |
 | `pm pkg install <pkg>[@ver] [-p project]` | 安装包到项目（含递归依赖） |
 | `pm pkg remove <pkg>[@ver]` | 从仓库删除包 |
-| `pm pkg list` | 列出仓库中的包 |
-| `pm pkg search [keyword]` | 按名称/描述搜索；省略关键字则列出全部 |
+| `pm pkg list [-a] [name...]` | 默认每个包一行（最新版本 + 版本数 + 总大小）；`-a` 显示全部版本；带包名时显示该包的版本历史 |
+| `pm pkg search [-a] [keyword]` | 按名称/描述搜索；默认按包名折叠，`-a` 显示每个匹配版本 |
+| `pm pkg prune [name...]` | 按策略清理旧版本；默认 dry-run，`--yes` 才删除 |
 | `pm pkg dir` | 打印仓库目录路径 |
 
 子命令支持缩写：`create`=`build`、`install`=`i`、`remove`=`rm`、`list`=`ls`。
@@ -165,7 +177,7 @@ pm remove demo        # 从列表移除（不删除任何文件）
 - **参数顺序随意**：`pm build -r App` 与 `pm build App -r` 等价。
 - **`--` 分隔**：`pm run App -- --input a.txt` 中 `--` 之后的都是程序参数。
 - **退出码**：成功 `0`；命令执行失败（如无活动项目、构建失败）`1`；未知命令 `2`。
-- **配置位置**：项目配置 `<项目>/config/.pmproject`；全局状态 `~/.project_manager/`。
+- **配置位置**：项目配置 `<项目>/.pmconfig/config.json`（兼容旧位置 `config/.pmproject`）；全局状态 `~/.project_manager/`。
 
 ---
 
@@ -236,6 +248,33 @@ pm pkg install greeter@2.0.0 -p Demo
 
 安装过程会先清理旧版本残留：新版本删掉的头文件、改名的旧库文件、失效的链接库名和目录条目。
 
+批量把当前项目所有依赖更新到仓库最新版：
+
+```bash
+pm deps update              # 打印计划（默认 dry-run）
+pm deps update --yes        # 实际更新
+pm deps update --pre        # 允许更新到 -rc/-beta 等预发布版
+```
+
+默认只选正式版；如果某个包只有预发布版，会回退到最新的预发布版。
+配置里的版本比仓库最新版还新时会跳过，不会降级。
+
+回退上一次批量更新：
+
+```bash
+pm deps rollback                # 查看会恢复哪些版本（dry-run）
+pm deps rollback --yes          # 执行回退
+pm deps rollback --yes --clean  # 同时移除更新时新增、快照中没有的依赖
+```
+
+`pm deps update --yes` 执行前会自动把当前依赖写入 `<project>/.pmconfig/deps_backup.json`。
+回退要求快照里的旧版本 `.pm` 仍在仓库中；如果已被 `pm pkg prune` 删除，需要先重新打包。
+只想回退单个包时也可以直接：
+
+```bash
+pm pkg install mylib@1.0.0 -p Demo
+```
+
 ### 5.3 卸载
 
 ```bash
@@ -284,6 +323,42 @@ pm pkg list                  # 确认
 
 ---
 
+### 5.7 查看版本与清理旧版本
+
+`pm pkg list` 默认**按包名折叠**，一个包只占一行：
+
+```text
+  NAME              LATEST    VERS  SIZE      DESCRIPTION
+  algorithm         0.1.1     2     242 KB    C++ algorithm library: ...
+  gtest             1.14.0    1     571 KB    GoogleTest (built-in)  [builtin]
+  util              0.1.3     3     816 KB    C++ utility library: MsgObject message bus and Timer
+```
+
+- `LATEST` 是版本号最高的可见版本（用户仓库优先，内置层兜底）；
+- `VERS` 是该包的可见版本数，`SIZE` 是所有版本的总大小；
+- `pm pkg list -a` 恢复逐版本输出（旧格式）；
+- `pm pkg list util` 查看单个包的版本历史，`USED BY` 列会显示哪些已注册项目仍引用该版本。
+
+清理旧版本：
+
+```bash
+pm pkg prune                    # 默认每个包保留最新 2 个版本，只打印计划（dry-run）
+pm pkg prune --keep 1 --yes     # 每个包只保留最新版本，实际删除
+pm pkg prune util --keep 2      # 只处理 util
+pm pkg prune --older-than 30d   # 只清理 30 天前的版本
+```
+
+保护规则（按优先级）：
+
+1. 每个包的最新版本永远保留；
+2. 最新版是 `2.0.0-rc1` 这类预发布版时，最高的正式版也保留；
+3. 内置层（`[builtin]`）永远不删；
+4. 已注册项目 `dependencies` 引用的版本保留（`--force` 可忽略）；
+5. 默认 dry-run，确认后加 `--yes`；`--keep-major N` 可按大版本分别保留。
+
+`USED BY` 与 prune 的项目引用来自 `~/.project_manager/solution.json` 里已注册的项目。
+项目里已经复制过去的头文件/库不受仓库清理影响；但之后若要重装被删掉的版本，需要重新打包。
+
 ## 6. TUI 操作
 
 ```bash
@@ -314,7 +389,8 @@ Build、Rebuild、Run、Configure、Clean、List Projects、Quit。
 | Build Log | `↑↓`/`j k` 滚动，`pgup`/`pgdn` 翻页，`g`/`G` 到首/尾，`esc` 返回 |
 | Configure | `↑↓` 移动，`b` 构建模式，`g` 生成类型，`f` 切换 main 文件，`s` 保存退出，`c`/`esc` 取消；`enter` 进入带 `[enter]` 标记的子页 |
 | Dependencies | `↑↓` 选择，`a` 从本地仓库安装，`r` 重装选中，`u` 全部重装，`d` 卸载，`esc` 返回 |
-| Install Package | `↑↓` 选择仓库中的包，`enter` 安装到当前项目，`esc` 返回 |
+| Install Package | `↑↓` 选择包（一行一个包，显示最新版），`enter` 安装最新版，`v` 查看/选择其它版本，`esc` 返回 |
+| Package Versions | `↑↓` 选择版本，`enter` 安装指定版本，`esc` 返回包列表 |
 | Libraries / Lib Dirs / Include Dirs / Source Dirs | `↑↓` 选择，`a` 新增，`d` 删除，`enter` 编辑；输入时 `enter` 保存、`esc` 取消、`ctrl+u` 清空 |
 | Projects 列表 | `↑↓` 选择，`enter` 切换活动项目（`pm -l` 下还会用 VS Code 打开所选项目），`esc` 返回 |
 
@@ -406,7 +482,7 @@ pm tui
 没有活动项目。用 `pm load <path>` 注册，或在命令里带上项目名（`pm build myapp`）。
 
 **构建失败，提示找不到源文件**
-检查 `src/`、`main/` 下是否有源文件，以及 `config/.pmproject` 里的 `main_file` 是否指向存在的文件。
+检查 `src/`、`main/` 下是否有源文件，以及 `.pmconfig/config.json` 里的 `main_file` 是否指向存在的文件。
 `pm init` 生成的项目自带 `main/main.cc`，不应出现该问题。
 
 **`package X@Y already exists in repository`**

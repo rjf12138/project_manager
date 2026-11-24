@@ -177,9 +177,8 @@ func (s *Solution) ProjectNameFromPath(projPath string) string {
 		return proj.Config().Name
 	}
 
-	// 尝试从配置文件读取
-	cfgPath := filepath.Join(projPath, "config", ".pmproject")
-	if data, err := os.ReadFile(cfgPath); err == nil {
+	// 尝试从配置文件读取（当前目录格式、早期单文件、旧版位置均兼容）
+	if data, _, err := readConfigData(projPath); err == nil {
 		var cfg ProjectConfig
 		if json.Unmarshal(data, &cfg) == nil && cfg.Name != "" {
 			return cfg.Name

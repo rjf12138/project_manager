@@ -1,9 +1,20 @@
-# 项目配置参考（`config/.pmproject`）
+# 项目配置参考（`.pmconfig/` 目录）
 
-每个项目在 `config/.pmproject` 保存一份 JSON 配置。它由 `pm init` 生成，
-之后可以用 TUI 的 Configure 页面修改，也可以直接用编辑器改（改完 `pm build` 会重新生成 `CMakeLists.txt`）。
+每个项目在**根目录**的 `.pmconfig/` 目录保存 pm 相关的全部配置：
 
-**位置**：`<project>/config/.pmproject`
+```
+<project>/.pmconfig/
+├── config.json       # 主配置（JSON）
+├── pre_build.sh      # 可选：构建前脚本
+└── post_build.sh     # 可选：构建后脚本
+```
+
+主配置由 `pm init` 生成，之后可以用 TUI 的 Configure 页面修改，也可以直接用编辑器改
+（改完 `pm build` 会重新生成 `CMakeLists.txt`）。
+
+**主配置位置**：`<project>/.pmconfig/config.json`
+**兼容**：早期单文件 `<project>/.pmconfig`、旧版 `<project>/config/.pmproject` 仍可读取；
+保存配置时会自动迁移为目录格式（旧文件保留不删，确认无误后可手动删除）
 **生成**：`pm init` 按默认值创建；`pm build` 读取它生成 `<project>/CMakeLists.txt`
 
 ---
@@ -164,7 +175,59 @@
 
 ---
 
-## 4. 与 TUI 配置页的对应
+## 4. 构建前后脚本
+
+在 `.pmconfig/` 下放置脚本文件即可在构建流程中插入自定义动作（生成代码、拷贝资源、上传产物等）：
+
+```
+<project>/.pmconfig/
+├── config.json
+├── pre_build.sh      # 构建前执行（可选）
+└── post_build.sh     # 编译成功后执行（可选）
+```
+
+脚本就是普通的 shell 脚本，多步操作直接写在同一个文件里：
+
+```bash
+#!/bin/bash
+# .pmconfig/pre_build.sh
+cmake -P scripts/gen_version.cmake
+mkdir -p generated
+```
+
+```bash
+#!/bin/bash
+# .pmconfig/post_build.sh
+cp output/debug/bin/myapp ./myapp.bin
+```
+
+执行规则：
+
+| 项 | 规则 |
+|---|---|
+| 触发方式 | 文件存在即执行，不存在则静默跳过 |
+| 执行时机 | `pre_build.sh`：清理（`-r`）之后、cmake 配置之前；`post_build.sh`：编译成功后 |
+| 工作目录 | 项目根目录 |
+| 解释器 | `$SHELL`，未设置时用 `/bin/bash`（无需 `chmod +x`） |
+| 失败处理 | `pre_build.sh` 失败立即中止，不再执行 cmake；`post_build.sh` 失败时构建返回错误（产物已生成） |
+| 输出 | stdout/stderr 写入构建日志，TUI 的 Build Log 页面可见 `[pre-build]` / `[post-build]` 前缀 |
+
+`pm build`、`pm -r`、TUI 的 Build / Rebuild 都走同一条构建流程，因此脚本都会执行。
+
+示例构建日志：
+
+```
+[pre-build] /path/to/myapp/.pmconfig/pre_build.sh
+-- Configuring done
+-- Generating done
+...
+[100%] Built target myapp
+[post-build] /path/to/myapp/.pmconfig/post_build.sh
+```
+
+---
+
+## 5. 与 TUI 配置页的对应
 
 | TUI 显示项 | 配置字段 | 快捷键 |
 |---|---|---|
@@ -183,7 +246,7 @@
 
 ---
 
-## 5. 已知限制
+## 6. 已知限制
 
 | 项 | 说明 |
 |---|---|

@@ -74,7 +74,7 @@ func TestProgramCreateProjectEndToEnd(t *testing.T) {
 	}
 
 	created := filepath.Join(parent, "demo")
-	if _, err := os.Stat(filepath.Join(created, "config", ".pmproject")); err != nil {
+	if _, err := os.Stat(filepath.Join(created, core.ConfigDirName, core.ConfigFileName)); err != nil {
 		t.Errorf("project config not created: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(created, "main", "main.cc")); err != nil {

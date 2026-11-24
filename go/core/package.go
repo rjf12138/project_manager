@@ -46,6 +46,43 @@ type PackageInfo struct {
 	Size     int64
 }
 
+// PackageSummary 按包名聚合的仓库视图：一个包名一行，Versions 按版本降序。
+type PackageSummary struct {
+	Name      string
+	Latest    PackageInfo   // 版本号最高的一个
+	Versions  []PackageInfo // 全部可见版本（用户仓库优先，内置层兜底）
+	TotalSize int64         // 所有版本的归档大小之和
+}
+
+// PruneOptions 旧版本清理策略。
+type PruneOptions struct {
+	Keep      int           // 每个包保留的最新版本数；小于 1 时按默认值 2 处理
+	KeepMajor int           // 每个大版本保留的最新版本数；0 表示不启用
+	OlderThan time.Duration // 只删除早于该时长的版本；0 表示不限
+	Names     []string      // 只处理这些包；空表示全部
+	Force     bool          // 忽略「被项目引用」的保护
+	DryRun    bool          // 只生成决策，不删除文件
+
+	// Protected 记录被已注册项目引用的版本：包名 -> 版本 -> true。
+	// 版本键为 "*" 表示该包的所有版本都被引用（依赖未写版本号时的保守处理）。
+	Protected map[string]map[string]bool
+}
+
+// PruneDecision 单个版本的处理决定。
+type PruneDecision struct {
+	Info   PackageInfo
+	Action string // "remove" / "keep"
+	Reason string // latest / latest-stable / builtin / used-by-project / keep-major / keep-policy / newer-than / outside-retention
+}
+
+// PruneResult 清理结果。
+type PruneResult struct {
+	Decisions      []PruneDecision
+	Removed        []PackageInfo
+	Freed          int64
+	OrphanSidecars []string // 没有对应 .pm 的孤立 .sha256 文件
+}
+
 // PackageTarget 包安装到项目时的目标目录集合
 type PackageTarget struct {
 	Root       string
@@ -408,6 +445,102 @@ func (pm *PackageManager) ListPackages() ([]PackageInfo, error) {
 	return infos, nil
 }
 
+// ListPackageSummaries 按包名聚合仓库内容（用户仓库优先，内置层兜底）。
+// 返回结果按包名升序，每个包内的 Versions 按版本降序。
+func (pm *PackageManager) ListPackageSummaries() ([]PackageSummary, error) {
+	infos, err := pm.ListPackages()
+	if err != nil {
+		return nil, err
+	}
+	return SummarizePackages(infos), nil
+}
+
+// SummarizePackages 按包名聚合包清单。
+// 输入通常来自 ListPackages 或 SearchPackages；返回结果按包名升序，包内版本降序。
+func SummarizePackages(infos []PackageInfo) []PackageSummary {
+	byName := make(map[string]*PackageSummary)
+	order := make([]string, 0, len(infos))
+	for _, info := range infos {
+		name := info.Manifest.Name
+		s, ok := byName[name]
+		if !ok {
+			s = &PackageSummary{Name: name}
+			byName[name] = s
+			order = append(order, name)
+		}
+		s.Versions = append(s.Versions, info)
+		s.TotalSize += info.Size
+	}
+
+	summaries := make([]PackageSummary, 0, len(order))
+	for _, name := range order {
+		s := byName[name]
+		sort.Slice(s.Versions, func(i, j int) bool {
+			return compareVersion(s.Versions[i].Manifest.Version, s.Versions[j].Manifest.Version) > 0
+		})
+		if len(s.Versions) > 0 {
+			s.Latest = s.Versions[0]
+		}
+		summaries = append(summaries, *s)
+	}
+
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].Name < summaries[j].Name
+	})
+	return summaries
+}
+
+// PackageVersions 返回某个包的所有可见版本（按版本降序）。
+// 包不存在时返回空切片，不返回错误。
+func (pm *PackageManager) PackageVersions(name string) ([]PackageInfo, error) {
+	name = strings.TrimSpace(name)
+	infos, err := pm.ListPackages()
+	if err != nil {
+		return nil, err
+	}
+
+	versions := make([]PackageInfo, 0, 4)
+	for _, info := range infos {
+		if info.Manifest.Name == name {
+			versions = append(versions, info)
+		}
+	}
+	sort.Slice(versions, func(i, j int) bool {
+		return compareVersion(versions[i].Manifest.Version, versions[j].Manifest.Version) > 0
+	})
+	return versions, nil
+}
+
+// LatestPackage 返回某个包的推荐版本（版本号最高的一个）。
+func (pm *PackageManager) LatestPackage(name string) (PackageInfo, error) {
+	versions, err := pm.PackageVersions(name)
+	if err != nil {
+		return PackageInfo{}, err
+	}
+	if len(versions) == 0 {
+		return PackageInfo{}, fmt.Errorf("package %s not found in repository (%s)", name, pm.repoDir)
+	}
+	return versions[0], nil
+}
+
+// LatestStablePackage 返回某个包的最高正式版（跳过 -rc/-beta 等预发布版）。
+// 没有正式版时返回错误；需要包含预发布版时用 LatestPackage。
+func (pm *PackageManager) LatestStablePackage(name string) (PackageInfo, error) {
+	versions, err := pm.PackageVersions(name)
+	if err != nil {
+		return PackageInfo{}, err
+	}
+	for _, info := range versions {
+		if !isPrereleaseVersion(info.Manifest.Version) {
+			return info, nil
+		}
+	}
+	if len(versions) == 0 {
+		return PackageInfo{}, fmt.Errorf("package %s not found in repository (%s)", name, pm.repoDir)
+	}
+	return PackageInfo{}, fmt.Errorf("package %s has no stable version in repository (%s)", name, pm.repoDir)
+}
+
 // SearchPackages 按关键字搜索包（匹配名称/描述）
 func (pm *PackageManager) SearchPackages(keyword string) ([]PackageInfo, error) {
 	all, err := pm.ListPackages()
@@ -428,6 +561,204 @@ func (pm *PackageManager) SearchPackages(keyword string) ([]PackageInfo, error) 
 		}
 	}
 	return result, nil
+}
+
+// ===================== 旧版本清理 =====================
+
+const (
+	pruneActionKeep   = "keep"
+	pruneActionRemove = "remove"
+)
+
+// Prune 按策略清理用户仓库中的旧版本。
+//
+// 保护规则（按优先级）：
+//   - 每个包的最新版本；
+//   - 最新稳定版（最新版是预发布版时）；
+//   - 内置层版本（只读，永不删除）；
+//   - 被已注册项目引用的版本（opts.Force 为真时忽略）；
+//   - 最近 opts.Keep 个版本，以及 opts.KeepMajor 策略命中的版本。
+//
+// DryRun 为真时只生成决策，不删除文件。
+func (pm *PackageManager) Prune(opts PruneOptions) (PruneResult, error) {
+	var result PruneResult
+
+	if opts.Keep < 1 {
+		opts.Keep = 2
+	}
+	if opts.KeepMajor < 0 {
+		opts.KeepMajor = 0
+	}
+	if pm.repoDir == "" {
+		if err := pm.Init(); err != nil {
+			return result, err
+		}
+	}
+
+	summaries, err := pm.ListPackageSummaries()
+	if err != nil {
+		return result, err
+	}
+
+	wanted := make(map[string]bool)
+	for _, n := range opts.Names {
+		n = strings.TrimSpace(n)
+		if n != "" {
+			wanted[n] = true
+		}
+	}
+	if len(wanted) > 0 {
+		existing := make(map[string]bool, len(summaries))
+		for _, s := range summaries {
+			existing[s.Name] = true
+		}
+		var missing []string
+		for n := range wanted {
+			if !existing[n] {
+				missing = append(missing, n)
+			}
+		}
+		if len(missing) > 0 {
+			sort.Strings(missing)
+			return result, fmt.Errorf("package(s) not found in repository: %s", strings.Join(missing, ", "))
+		}
+	}
+
+	for _, summary := range summaries {
+		if len(wanted) > 0 && !wanted[summary.Name] {
+			continue
+		}
+		result.Decisions = append(result.Decisions, pm.pruneDecisions(summary, opts)...)
+	}
+
+	result.OrphanSidecars = pm.orphanChecksumSidecars()
+	if opts.DryRun {
+		return result, nil
+	}
+
+	for _, d := range result.Decisions {
+		if d.Action != pruneActionRemove {
+			continue
+		}
+		if err := os.Remove(d.Info.File); err != nil {
+			return result, fmt.Errorf("remove %s: %w", d.Info.File, err)
+		}
+		if err := os.Remove(ChecksumSidecarPath(d.Info.File)); err != nil && !os.IsNotExist(err) {
+			return result, fmt.Errorf("remove checksum sidecar for %s: %w", d.Info.File, err)
+		}
+		result.Removed = append(result.Removed, d.Info)
+		result.Freed += d.Info.Size
+	}
+	for _, f := range result.OrphanSidecars {
+		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+			return result, fmt.Errorf("remove orphan checksum %s: %w", f, err)
+		}
+	}
+	return result, nil
+}
+
+// pruneDecisions 计算单个包各版本的保留/删除决定。
+func (pm *PackageManager) pruneDecisions(summary PackageSummary, opts PruneOptions) []PruneDecision {
+	versions := summary.Versions
+	if len(versions) == 0 {
+		return nil
+	}
+
+	latest := versions[0].Manifest.Version
+	latestStable := ""
+	if isPrereleaseVersion(latest) {
+		for _, v := range versions {
+			if !isPrereleaseVersion(v.Manifest.Version) {
+				latestStable = v.Manifest.Version
+				break
+			}
+		}
+	}
+
+	keepPolicy := make(map[string]bool, opts.Keep)
+	for i, v := range versions {
+		if i >= opts.Keep {
+			break
+		}
+		keepPolicy[v.Manifest.Version] = true
+	}
+
+	keepMajor := make(map[string]bool)
+	if opts.KeepMajor > 0 {
+		counts := make(map[string]int)
+		for _, v := range versions {
+			major := versionMajor(v.Manifest.Version)
+			if counts[major] >= opts.KeepMajor {
+				continue
+			}
+			counts[major]++
+			keepMajor[v.Manifest.Version] = true
+		}
+	}
+
+	refs := opts.Protected[summary.Name]
+	cutoff := time.Time{}
+	if opts.OlderThan > 0 {
+		cutoff = time.Now().Add(-opts.OlderThan)
+	}
+
+	decisions := make([]PruneDecision, 0, len(versions))
+	for _, v := range versions {
+		ver := v.Manifest.Version
+		protectedByProject := false
+		if !opts.Force && refs != nil {
+			protectedByProject = refs[ver] || refs["*"]
+		}
+
+		switch {
+		case ver == latest:
+			decisions = append(decisions, PruneDecision{Info: v, Action: pruneActionKeep, Reason: "latest"})
+		case ver == latestStable:
+			decisions = append(decisions, PruneDecision{Info: v, Action: pruneActionKeep, Reason: "latest-stable"})
+		case pm.IsBuiltin(v.File):
+			decisions = append(decisions, PruneDecision{Info: v, Action: pruneActionKeep, Reason: "builtin"})
+		case protectedByProject:
+			decisions = append(decisions, PruneDecision{Info: v, Action: pruneActionKeep, Reason: "used-by-project"})
+		case keepMajor[ver]:
+			decisions = append(decisions, PruneDecision{Info: v, Action: pruneActionKeep, Reason: "keep-major"})
+		case keepPolicy[ver]:
+			decisions = append(decisions, PruneDecision{Info: v, Action: pruneActionKeep, Reason: "keep-policy"})
+		default:
+			if opts.OlderThan > 0 {
+				fi, statErr := os.Stat(v.File)
+				if statErr != nil || !fi.ModTime().Before(cutoff) {
+					decisions = append(decisions, PruneDecision{Info: v, Action: pruneActionKeep, Reason: "newer-than"})
+					continue
+				}
+			}
+			decisions = append(decisions, PruneDecision{Info: v, Action: pruneActionRemove, Reason: "outside-retention"})
+		}
+	}
+	return decisions
+}
+
+// orphanChecksumSidecars 返回用户仓库中没有对应 .pm 的孤立摘要文件。
+func (pm *PackageManager) orphanChecksumSidecars() []string {
+	if pm.repoDir == "" {
+		return nil
+	}
+	entries, err := os.ReadDir(pm.repoDir)
+	if err != nil {
+		return nil
+	}
+
+	var orphans []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".pm.sha256") {
+			continue
+		}
+		pmName := strings.TrimSuffix(e.Name(), ".sha256")
+		if _, statErr := os.Stat(filepath.Join(pm.repoDir, pmName)); os.IsNotExist(statErr) {
+			orphans = append(orphans, filepath.Join(pm.repoDir, e.Name()))
+		}
+	}
+	sort.Strings(orphans)
+	return orphans
 }
 
 // RemovePackage 从用户仓库删除指定包（内置包只读，不允许删除）
@@ -468,35 +799,24 @@ func (pm *PackageManager) findPackageFile(name, version string) (string, error) 
 		}
 	}
 
+	if version == "" {
+		info, err := pm.LatestPackage(name)
+		if err != nil {
+			return "", err
+		}
+		return info.File, nil
+	}
+
 	infos, err := pm.ListPackages()
 	if err != nil {
 		return "", err
 	}
-
-	best := ""
-	bestVer := ""
 	for _, info := range infos {
-		if info.Manifest.Name != name {
-			continue
-		}
-		if version != "" {
-			if info.Manifest.Version == version {
-				return info.File, nil
-			}
-			continue
-		}
-		if best == "" || compareVersion(info.Manifest.Version, bestVer) > 0 {
-			best, bestVer = info.File, info.Manifest.Version
+		if info.Manifest.Name == name && info.Manifest.Version == version {
+			return info.File, nil
 		}
 	}
-
-	if best != "" {
-		return best, nil
-	}
-	if version != "" {
-		return "", fmt.Errorf("package %s@%s not found in repository (%s)", name, version, pm.repoDir)
-	}
-	return "", fmt.Errorf("package %s not found in repository (%s)", name, pm.repoDir)
+	return "", fmt.Errorf("package %s@%s not found in repository (%s)", name, version, pm.repoDir)
 }
 
 // ManifestOf 在本地仓库中查找包的元数据（version 为空时取版本最高的一个）。
@@ -1167,10 +1487,75 @@ func removeString(list []string, item string) []string {
 	return result
 }
 
-// compareVersion 简单版本比较：a>b 返回 1，a<b 返回 -1，相等返回 0
+// isPrereleaseVersion 判断版本号是否带预发布后缀（如 1.0.0-rc1）。
+func isPrereleaseVersion(v string) bool {
+	return strings.Contains(strings.TrimSpace(v), "-")
+}
+
+// versionMajor 返回版本号的主版本段（1.2.3 -> 1）。
+func versionMajor(v string) string {
+	v = strings.TrimSpace(v)
+	if i := strings.IndexAny(v, ".-+"); i >= 0 {
+		return v[:i]
+	}
+	return v
+}
+
+// FormatSize 把字节数格式化为易读大小（如 1.2 MB）。
+func FormatSize(n int64) string {
+	if n < 0 {
+		n = 0
+	}
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for v := n / unit; v >= unit; v /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGTPE"[exp])
+}
+
+// CompareVersions 比较两个版本号：a>b 返回 1，a<b 返回 -1，相等返回 0。
+func CompareVersions(a, b string) int {
+	return compareVersion(a, b)
+}
+
+// compareVersion 版本比较：a>b 返回 1，a<b 返回 -1，相等返回 0。
+//
+// 支持 1.2.3、1.2.3-rc.1、1.2.3+build 形式：
+//   - 数字段逐段比较，缺省段按 0；
+//   - 预发布版小于同号正式版；
+//   - 预发布标识符按 semver 规则比较（数字段按数值，数字小于非数字）；
+//   - +build 元数据忽略。
 func compareVersion(a, b string) int {
-	as := strings.Split(strings.TrimSpace(a), ".")
-	bs := strings.Split(strings.TrimSpace(b), ".")
+	aCore, aPre := splitVersion(a)
+	bCore, bPre := splitVersion(b)
+
+	if c := compareVersionCore(aCore, bCore); c != 0 {
+		return c
+	}
+	return comparePrerelease(aPre, bPre)
+}
+
+// splitVersion 拆出版本核心段与预发布段，并丢弃 +build 元数据。
+func splitVersion(v string) (core, pre string) {
+	v = strings.TrimSpace(v)
+	if i := strings.Index(v, "+"); i >= 0 {
+		v = v[:i]
+	}
+	if i := strings.Index(v, "-"); i >= 0 {
+		return v[:i], v[i+1:]
+	}
+	return v, ""
+}
+
+// compareVersionCore 逐段比较版本核心（1.2.3）。
+func compareVersionCore(a, b string) int {
+	as := strings.Split(a, ".")
+	bs := strings.Split(b, ".")
 
 	n := len(as)
 	if len(bs) > n {
@@ -1178,17 +1563,16 @@ func compareVersion(a, b string) int {
 	}
 
 	for i := 0; i < n; i++ {
-		var av, bv string
-		if i < len(as) {
+		av, bv := "0", "0"
+		if i < len(as) && as[i] != "" {
 			av = as[i]
 		}
-		if i < len(bs) {
+		if i < len(bs) && bs[i] != "" {
 			bv = bs[i]
 		}
 
 		ai, aerr := strconv.Atoi(av)
 		bi, berr := strconv.Atoi(bv)
-
 		if aerr == nil && berr == nil {
 			if ai != bi {
 				if ai > bi {
@@ -1199,6 +1583,7 @@ func compareVersion(a, b string) int {
 			continue
 		}
 
+		// 非数字段保持原有的字符串比较行为（兼容 v1.0 之类写法）
 		if av != bv {
 			if av > bv {
 				return 1
@@ -1206,6 +1591,105 @@ func compareVersion(a, b string) int {
 			return -1
 		}
 	}
-
 	return 0
+}
+
+// comparePrerelease 比较预发布段：没有预发布段的大于有预发布段的。
+func comparePrerelease(a, b string) int {
+	if a == "" && b == "" {
+		return 0
+	}
+	if a == "" {
+		return 1
+	}
+	if b == "" {
+		return -1
+	}
+
+	as := strings.Split(a, ".")
+	bs := strings.Split(b, ".")
+	n := len(as)
+	if len(bs) < n {
+		n = len(bs)
+	}
+	for i := 0; i < n; i++ {
+		if c := comparePrereleaseIdent(as[i], bs[i]); c != 0 {
+			return c
+		}
+	}
+	if len(as) > len(bs) {
+		return 1
+	}
+	if len(as) < len(bs) {
+		return -1
+	}
+	return 0
+}
+
+// comparePrereleaseIdent 比较单个预发布标识符：
+// 数字段按数值；两边都是字母+数字时按“前缀相同则数字部分按数值”比较（rc2 < rc10）；
+// 数字段小于非数字段。
+func comparePrereleaseIdent(a, b string) int {
+	ai, aerr := strconv.Atoi(a)
+	bi, berr := strconv.Atoi(b)
+
+	switch {
+	case aerr == nil && berr == nil:
+		if ai > bi {
+			return 1
+		}
+		if ai < bi {
+			return -1
+		}
+		return 0
+	case aerr == nil:
+		return -1
+	case berr == nil:
+		return 1
+	}
+
+	if c, ok := compareTrailingNumber(a, b); ok {
+		return c
+	}
+
+	if a > b {
+		return 1
+	}
+	if a < b {
+		return -1
+	}
+	return 0
+}
+
+// compareTrailingNumber 比较形如 rc2 / rc10、beta1 / beta2 的标识符。
+// 前缀不同或任一侧没有尾部数字时返回 ok=false，交给字符串比较。
+func compareTrailingNumber(a, b string) (int, bool) {
+	aPrefix, aNum, aok := splitTrailingNumber(a)
+	bPrefix, bNum, bok := splitTrailingNumber(b)
+	if !aok || !bok || aPrefix != bPrefix {
+		return 0, false
+	}
+	if aNum > bNum {
+		return 1, true
+	}
+	if aNum < bNum {
+		return -1, true
+	}
+	return 0, true
+}
+
+// splitTrailingNumber 拆出字符串末尾的十进制数字（rc10 -> "rc", 10）。
+func splitTrailingNumber(s string) (prefix string, num int, ok bool) {
+	i := len(s)
+	for i > 0 && s[i-1] >= '0' && s[i-1] <= '9' {
+		i--
+	}
+	if i == len(s) {
+		return s, 0, false
+	}
+	n, err := strconv.Atoi(s[i:])
+	if err != nil {
+		return s, 0, false
+	}
+	return s[:i], n, true
 }
